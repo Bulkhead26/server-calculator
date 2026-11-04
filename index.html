@@ -1113,48 +1113,74 @@ IB卡: 8xHDR 200Gb/s
       }
 
       const fields = [];
-      
+
       // ===== 表格格式识别（按行解析：名称 / 规格 / 单位 / 数量）=====
-      // OCR 会把中文拆字（"机 头""处 理 器""内 存"），先合并中文字符间的空格
-      const normalizedText = text.replace(/([\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])/g, '$1');
-      const rows = normalizedText.split('\n').map(r => r.trim()).filter(r => r.length > 0);
-      // 名称 → 字段映射表（键为合并后的标准字段名，包含 OCR 常见误读）
+      // 名称 → 字段映射表（含 OCR 常见变体）
       const nameToField = {
         '机头': 'serverName', '名称': 'serverName', '机型': 'serverName',
+        '平台': 'serverName', '设备型号': 'serverName', '型号': 'serverName',
         '处理器': 'cpu', 'CPU': 'cpu',
         '内存': 'memory_gb',
         '系统盘': 'system_disk',
         '数据盘': 'data_disk',
-        '网卡': 'network',
-        '网卡2': 'network2', 'IB卡': 'ib_card', 'IB': 'ib_card',
+        '网卡': 'network', '网卡1': 'network', '网卡一': 'network',
+        '网卡2': 'network2', '网卡二': 'network2',
+        'IB卡': 'ib_card', 'IB': 'ib_card',
         'GPU卡': 'gpu', 'GPU': 'gpu', 'GPUF': 'gpu', '显卡': 'gpu',
         '阵列卡': 'raid_card',
         '电源': 'power',
       };
+      // 表头与无关词，出现时跳过
+      const headerWords = /^(设备型号|设备配置|数量|名称|规格|型号|单位|规格型号|设备名称)$/;
+      // OCR 会把中文拆字（"机 头""处 理 器""内 存"），合并同一行内中文字符间的空格；
+      // 但换行绝不能合并（行是分隔符），且空格前若已构成字段名或表头词（如"平台 超聚变G8600"、
+      // "设备配置 数量"），那是词边界而不是拆字，必须保留空格。
+      const normalizedText = text.replace(
+        /([\u4e00-\u9fff])[ \t\u3000]+(?=[\u4e00-\u9fff])/g,
+        (m, ch, off, src) => {
+          const before = src.slice(Math.max(0, off - 8), off + 1).replace(/[ \t\u3000]+/g, '');
+          const isBoundary = Object.keys(nameToField).some((k) => before.endsWith(k))
+            || /(设备型号|设备配置|数量|名称|规格|型号|单位|规格型号|设备名称|平台)$/.test(before);
+          return isBoundary ? m : ch;
+        },
+      );
+      const rows = normalizedText.split('\n').map(r => r.trim()).filter(r => r.length > 0);
+      // 同名重复时按顺序改判：第二个"系统盘"视为数据盘，第二个"网卡"视为网卡2
+      const reassign = (field) => {
+        if (field === 'system_disk' && fields.some((x) => x.field === 'system_disk')
+            && !fields.some((x) => x.field === 'data_disk')) return 'data_disk';
+        if (field === 'network' && fields.some((x) => x.field === 'network')
+            && !fields.some((x) => x.field === 'network2')) return 'network2';
+        return field;
+      };
       // 单位量词，用于从行末剥离"单位+数量"列
       const unitWords = /台|个|块|片|根|颗|张|套|组/;
       for (const row of rows) {
-        // 跳过表头（更宽松的匹配）
-        if (/^(名称|规格|型号|单位|数量|规格型号)/.test(row) && row.length < 20) continue;
-        if (/^(名称\s+规格|名称\s+规格型号)/.test(row)) continue;
-        // 拆分：第一个 token 是名称，最后一个数字是数量，倒数第二个如果是单位量词则也剥离
-        const tokens = row.split(/\s+/);
-        if (tokens.length < 2) continue;
-        const name = tokens[0];
-        const field = nameToField[name];
-        if (!field) continue;
+        const rowTokens = row.split(/\s+/);
+        // 跳过表头：一行内出现 2 个及以上表头词，或整行只有一个表头词
+        const headerHits = rowTokens.filter((t) => headerWords.test(t)).length;
+        if (headerHits >= 2) continue;
+        if (headerHits === 1 && rowTokens.length === 1) continue;
+        if (rowTokens.length < 2) continue;
+        // 字段名不一定是行首：表格首列可能是合并单元格的机型名（如“算力服务器”）
+        let nameIdx = -1;
+        for (let i = 0; i < Math.min(rowTokens.length, 3); i++) {
+          if (nameToField[rowTokens[i]]) { nameIdx = i; break; }
+        }
+        if (nameIdx < 0) continue;
+        let field = reassign(nameToField[rowTokens[nameIdx]]);
         // 剥离末尾的数量
         let qty = '';
-        let specEnd = tokens.length;
-        if (/^\d+$/.test(tokens[tokens.length - 1])) {
-          qty = tokens[tokens.length - 1];
+        let specEnd = rowTokens.length;
+        if (/^\d+$/.test(rowTokens[rowTokens.length - 1])) {
+          qty = rowTokens[rowTokens.length - 1];
           specEnd--;
         }
         // 剥离末尾的单位量词
-        if (specEnd > 1 && unitWords.test(tokens[specEnd - 1])) {
+        if (specEnd > nameIdx + 1 && unitWords.test(rowTokens[specEnd - 1])) {
           specEnd--;
         }
-        const spec = tokens.slice(1, specEnd).join(' ');
+        const spec = rowTokens.slice(nameIdx + 1, specEnd).join(' ');
         if (field === 'memory_gb') {
           // 内存行：提取单根容量 × 数量（OCR 可能把 G 误读为 C）
           const capMatch = spec.match(/(\d+)\s*[GgCc]/);
@@ -1246,8 +1272,39 @@ IB卡: 8xHDR 200Gb/s
       const powerMatch = text.match(/电源\s*[:：]\s*(.+)/);
       if (powerMatch) fields.push({ field: 'power', value: powerMatch[1].trim(), confidence: 0.6 });
 
+      // 把“网卡2”合并进“网卡”：两张网卡都是网卡，不能冒充 IB 卡，信息也不该丢
+      const net2Items = fields.filter((f) => f.field === 'network2');
+      if (net2Items.length) {
+        const netIdx = fields.findIndex((f) => f.field === 'network');
+        const merged = [
+          ...(netIdx >= 0 ? [fields[netIdx].value] : []),
+          ...net2Items.map((x) => x.value),
+        ].join(' + ');
+        if (netIdx >= 0) fields[netIdx].value = merged;
+        else fields.push({ field: 'network', value: merged, confidence: 0.7 });
+        for (let i = fields.length - 1; i >= 0; i--) {
+          if (fields[i].field === 'network2') fields.splice(i, 1);
+        }
+      }
+
       if (fields.length === 0) {
-        showToast('⚠️ 未能识别任何字段');
+        // 失败时给出可诊断的说明，而不是一句“未识别”
+        const compact = text.replace(/\s+/g, '');
+        const cn = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+        const resultDiv = document.getElementById('extractResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+          <h4>未能识别出字段</h4>
+          <p>已读取 ${text.length} 个字符（其中汉字 ${cn} 个），但没有匹配到可用的配置项。</p>
+          <p><b>最常见原因：图片是拍照或扫描件。</b>纸张照片有底纹、阴影和轻微扭曲时，本地 OCR 的识别率会大幅下降；
+          屏幕截图（清晰、无变形）的识别率明显更高。</p>
+          <p>可以这样处理：</p>
+          <ul style="margin-left:18px;line-height:1.9">
+            <li>改用<b>屏幕截图</b>后重新粘贴，而不是用手机拍屏幕或拍纸质文件</li>
+            <li>把表格文字<b>直接粘贴到上面的输入框</b>，再点“识别报价单”</li>
+            <li>用系统自带的截图工具（Win+Shift+S）截取表格区域，画质更清晰</li>
+          </ul>`;
+        showToast('⚠️ 未识别到字段，请查看下方原因说明');
         return;
       }
 
@@ -1433,8 +1490,13 @@ IB卡: 8xHDR 200Gb/s
         );
 
         const text = result.data.text;
-        ocrStatus.textContent = '✅ OCR 识别完成';
-        ocrResult.textContent = text;
+        const conf = Math.round(result.data.confidence || 0);
+        const cnCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+        const lowQuality = cnCount < 20 || text.replace(/\s+/g, '').length < 30;
+        ocrStatus.textContent = lowQuality
+          ? `⚠️ 识别质量低（置信度 ${conf}%，有效汉字 ${cnCount} 个）—— 这张图可能是拍照或扫描件，建议改用屏幕截图`
+          : `✅ OCR 识别完成（置信度 ${conf}%）`;
+        ocrResult.textContent = text.trim() || '（没有识别到任何文字）';
         ocrResult.classList.remove('hidden');
         
         // 自动填入文本框
