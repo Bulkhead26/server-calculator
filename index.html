@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>服务器性能对比测算器</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .header h1 { font-size: 32px; color: #333; margin-bottom: 10px; }
+    .header p { color: #666; font-size: 16px; }
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    .form-group input, .form-group select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-danger { background: #ff4757; color: white; }
+    .btn-danger:hover { background: #ff3838; }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .server-list { display: grid; gap: 15px; }
+    .server-item {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid #667eea;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .server-item:hover { border-left-color: #764ba2; }
+    .server-item.selected {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+    .server-item h3 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .server-item .info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .server-item .info div {
+      display: flex;
+      justify-content: space-between;
+    }
+    .server-item .info strong { color: #333; }
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+    }
+    .result-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .result-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .result-card h3 {
+      font-size: 22px;
+      margin-bottom: 15px;
+      position: relative;
+    }
+    .result-card .metric {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      position: relative;
+    }
+    .result-card .metric:last-child { border-bottom: none; }
+    .result-card .metric-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .result-card .metric-value {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .rank-badge {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(255,255,255,0.2);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .summary-box {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 16px;
+      margin-top: 20px;
+    }
+    .summary-box h3 {
+      font-size: 22px;
+      margin-bottom: 15px;
+    }
+    .summary-box .recommendation {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+    .summary-box .recommendation div {
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 12px;
+    }
+    .summary-box .recommendation strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+    .extract-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .extract-row textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .extract-result {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+    .extract-result h4 {
+      font-size: 16px;
+      color: #166534;
+      margin-bottom: 10px;
+    }
+    .extract-result .field {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #d1fae5;
+    }
+    .extract-result .field:last-child { border-bottom: none; }
+    .extract-result .field-name { color: #059669; font-weight: 500; }
+    .extract-result .field-value { color: #333; }
+    .extract-result .field-confidence {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #333;
+      color: white;
+      padding: 15px 25px;
+      border-radius: 8px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+      z-index: 1000;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .hidden { display: none; }
+    .image-preview {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px dashed #667eea;
+    }
+    .image-preview img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 4px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .image-preview .ocr-status {
+      color: #667eea;
+      font-weight: 500;
+    }
+    .image-preview .ocr-result {
+      margin-top: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 13px;
+      color: #333;
+      white-space: pre-wrap;
+    }
+    .drop-zone {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #667eea;
+      background: #f8f9fa;
+    }
+    .drop-zone p {
+      color: #666;
+      margin: 5px 0;
+    }
+    .drop-zone .icon {
+      font-size: 48px;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 服务器性能对比测算器</h1>
+      <p>基于业务场景的 GPU 服务器理论聚合吞吐评估工具（独立版本）</p>
+    </div>
+
+    <!-- 业务配置 -->
+    <div class="card">
+      <h2>🎯 业务场景配置</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>部署模型</label>
+          <select id="modelName">
+            <option value="DeepSeek-V4-Flash">DeepSeek-V4-Flash</option>
+            <option value="DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash</option>
+            <option value="DeepSeek-V3">DeepSeek-V3</option>
+            <option value="LLaMA-70B">LLaMA-70B</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>缓存命中率 (%)</label>
+          <input type="number" id="cacheHitRate" value="66.77" step="0.01" min="0" max="100">
+        </div>
+        <div class="form-group">
+          <label>30日平均输入 (tokens)</label>
+          <input type="number" id="avgInputTokens" value="98000" min="1">
+        </div>
+        <div class="form-group">
+          <label>30日平均输出 (tokens)</label>
+          <input type="number" id="avgOutputTokens" value="255" min="1">
+        </div>
+        <div class="form-group">
+          <label>KV Cache精度</label>
+          <select id="kvCacheDtype">
+            <option value="fp8">FP8</option>
+            <option value="fp16">FP16</option>
+            <option value="bf16">BF16</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>解码带宽利用率</label>
+          <input type="number" id="decodeEfficiency" value="0.69" step="0.01" min="0.05" max="1.5">
+        </div>
+        <div class="form-group">
+          <label>预填充算力利用率</label>
+          <input type="number" id="prefillEfficiency" value="0.5" step="0.01" min="0.05" max="1.5">
+        </div>
+      </div>
+    </div>
+
+    <!-- 报价单识别 -->
+    <div class="card">
+      <h2>📄 报价单文字识别</h2>
+      <p style="color: #666; margin-bottom: 15px;">
+        粘贴文字或图片，系统会自动识别并填入配置字段。识别结果只填入空白字段，保存前请核对。
+      </p>
+      
+      <!-- 图片上传/拖拽/粘贴区域 -->
+      <div id="dropZone" class="drop-zone">
+        <div class="icon">📷</div>
+        <p><strong>拖拽图片到这里</strong> 或 <strong>点击上传</strong></p>
+        <p style="font-size: 13px; color: #999;">支持 JPG、PNG 格式，也可按 Ctrl+V 粘贴图片</p>
+        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+      </div>
+      
+      <!-- 图片预览和 OCR 状态 -->
+      <div id="imagePreview" class="image-preview hidden">
+        <img id="previewImg" src="" alt="预览">
+        <div class="ocr-status" id="ocrStatus">准备识别...</div>
+        <div class="ocr-result hidden" id="ocrResult"></div>
+      </div>
+      
+      <div class="extract-row">
+        <textarea id="quoteText" placeholder="粘贴报价单文字，例如：
+机型名称: 昇腾 910C 8卡整机
+整机总价: 220万元
+GPU: 华为 Ascend 910C x 8
+CPU: Intel Xeon Platinum 8480+
+内存: 2048GB
+数据盘: 4x3.84TB NVMe SSD
+系统盘: 2x960GB SSD
+网卡: 4x100GbE
+IB卡: 8xHDR 200Gb/s
+电源: 4x2700W 冗余电源"></textarea>
+      </div>
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="extractQuote()">🔍 识别报价单</button>
+        <button class="btn btn-secondary" onclick="clearImage()">🗑️ 清除图片</button>
+      </div>
+      <div id="extractResult" class="extract-result hidden"></div>
+    </div>
+
+    <!-- 服务器配置 -->
+    <div class="card">
+      <h2>🖥️ 服务器配置录入</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>配置名称 *</label>
+          <input type="text" id="serverName" placeholder="如：昇腾910C 8卡">
+        </div>
+        <div class="form-group">
+          <label>整机价格 (万元) *</label>
+          <input type="number" id="price" placeholder="如：220" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>GPU型号 *</label>
+          <select id="gpuModel" onchange="autoFillGpuSpec()">
+            <option value="">请选择</option>
+            <option value="H200">NVIDIA H200</option>
+            <option value="H100">NVIDIA H100</option>
+            <option value="A100">NVIDIA A100</option>
+            <option value="A800">NVIDIA A800</option>
+            <option value="Ascend 910C">华为昇腾 910C</option>
+            <option value="Ascend 910B">华为昇腾 910B</option>
+            <option value="RTX PRO 6000">NVIDIA RTX PRO 6000</option>
+            <option value="MI300X">AMD MI300X</option>
+            <option value="MI325X">AMD MI325X</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>GPU数量</label>
+          <input type="number" id="gpuCount" value="8" min="1">
+        </div>
+        <div class="form-group">
+          <label>CPU</label>
+          <input type="text" id="cpu" placeholder="如：Intel Xeon Platinum 8480+">
+        </div>
+        <div class="form-group">
+          <label>系统内存 (GB)</label>
+          <input type="number" id="memoryGB" placeholder="如：2048">
+        </div>
+        <div class="form-group">
+          <label>数据盘</label>
+          <input type="text" id="dataDisk" placeholder="如：4×3.84TB NVMe SSD">
+        </div>
+        <div class="form-group">
+          <label>系统盘</label>
+          <input type="text" id="systemDisk" placeholder="如：2×960GB SSD">
+        </div>
+        <div class="form-group">
+          <label>网卡</label>
+          <input type="text" id="network" placeholder="如：4×100GbE">
+        </div>
+        <div class="form-group">
+          <label>IB卡</label>
+          <input type="text" id="ibCard" placeholder="如：8×HDR 200Gb/s">
+        </div>
+        <div class="form-group">
+          <label>电源</label>
+          <input type="text" id="power" placeholder="如：4×2700W冗余电源">
+        </div>
+        <div class="form-group">
+          <label>单卡显存 (GB)</label>
+          <input type="number" id="gpuMemoryGB" placeholder="如：128" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>单卡显存带宽 (GB/s)</label>
+          <input type="number" id="gpuMemoryBandwidthGBS" placeholder="如：1600" step="1">
+        </div>
+        <div class="form-group">
+          <label>单卡FP16算力 (TFLOPS)</label>
+          <input type="number" id="gpuFP16TFLOPS" placeholder="如：640" step="1">
+        </div>
+        <div class="form-group">
+          <label>单卡FP8算力 (TFLOPS)</label>
+          <input type="number" id="gpuFP8TFLOPS" placeholder="如：1280" step="1">
+        </div>
+      </div>
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="addServer()">➕ 添加配置</button>
+        <button class="btn btn-secondary" onclick="clearForm()">🗑️ 清空表单</button>
+      </div>
+    </div>
+
+    <!-- 已添加配置列表 -->
+    <div class="card">
+      <h2>📋 已添加配置 (<span id="serverCount">0</span>)</h2>
+      <p style="color: #666; margin-bottom: 15px;">点击配置卡片可勾选/取消，至少选择 2 个配置进行对比</p>
+      <div id="serverList" class="server-list"></div>
+      <div class="button-group" style="margin-top: 20px;">
+        <button class="btn btn-primary" onclick="calculate()" id="calculateBtn">🧮 开始测算</button>
+        <button class="btn btn-secondary" onclick="exportCSV()">📊 导出 CSV</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空所有</button>
+      </div>
+    </div>
+
+    <!-- 测算结果 -->
+    <div id="resultSection" class="card hidden">
+      <h2>📊 测算结果</h2>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <script>
+    // GPU 规格数据库
+    const GPU_DATABASE = {
+      'H200': { memory_gb: 141, bandwidth_gbs: 4800, fp16_tflops: 1979, fp8_tflops: 3958 },
+      'H100': { memory_gb: 80, bandwidth_gbs: 3350, fp16_tflops: 1979, fp8_tflops: 3958 },
+      'A100': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0 },
+      'A800': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0 },
+      'Ascend 910C': { memory_gb: 128, bandwidth_gbs: 1600, fp16_tflops: 640, fp8_tflops: 1280 },
+      'Ascend 910B': { memory_gb: 64, bandwidth_gbs: 1200, fp16_tflops: 320, fp8_tflops: 640 },
+      'RTX PRO 6000': { memory_gb: 96, bandwidth_gbs: 1792, fp16_tflops: 374, fp8_tflops: 748 },
+      'MI300X': { memory_gb: 192, bandwidth_gbs: 5300, fp16_tflops: 1300, fp8_tflops: 2600 },
+      'MI325X': { memory_gb: 256, bandwidth_gbs: 6000, fp16_tflops: 1300, fp8_tflops: 2600 },
+    };
+
+    // 模型规格数据库（DeepSeek-V3 结构）
+    const MODEL_DATABASE = {
+      'DeepSeek-V4-Flash': {
+        name: 'DeepSeek-V4-Flash',
+        total_params_b: 671,
+        active_params_b: 32,
+        num_layers: 61,
+        num_kv_heads: 128,
+        head_dim: 128,
+        kv_lora_rank: 512,
+        qk_rope_head_dim: 64,
+        n_routed_experts: 256,
+        num_experts_per_tok: 8,
+        weight_dtype: 'fp8',
+        max_context_length: 131072,
+      },
+      'DeepSeek-V3': {
+        name: 'DeepSeek-V3',
+        total_params_b: 671,
+        active_params_b: 37,
+        num_layers: 61,
+        num_kv_heads: 128,
+        head_dim: 128,
+        kv_lora_rank: 512,
+        qk_rope_head_dim: 64,
+        n_routed_experts: 256,
+        num_experts_per_tok: 8,
+        weight_dtype: 'fp8',
+        max_context_length: 131072,
+      },
+      'DeepSeek-V4.1-Flash': {
+        name: 'DeepSeek-V4.1-Flash',
+        backbone_params_b: 552,
+        engram_params_b: 196,
+        active_prefill_params_b: 8,
+        active_decode_params_b: 16,
+        num_layers: 40,
+        n_routed_experts: 384,
+        num_experts_per_tok: 6,
+        max_context_length: 1048576,
+        global_kv_fp4_bytes_per_token: 890,
+        weight_dtype: 'fp8',
+        expert_dtype: 'fp4',
+        calculation_supported: false,
+        raw_config: {
+          text_config: {
+            num_hidden_layers: 40,
+            hidden_size: 5120,
+            moe_intermediate_size: 2304,
+            num_attention_heads: 64,
+            num_key_value_heads: 1,
+            head_dim: 512,
+            qk_rope_head_dim: 64,
+            q_lora_rank: 1280,
+            o_lora_rank: 1024,
+            n_routed_experts: 384,
+            n_shared_experts: 1,
+            num_experts_per_tok: 6,
+            sliding_window: 128,
+            max_position_embeddings: 1048576,
+          }
+        },
+        source: 'huggingface',
+        source_url: 'https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/raw/main/config.json',
+        note: 'V4.1 采用 CED 架构 + CSA2 注意力 + FP4 KV，与 V3/V4 的 MLA 公式不兼容。当前测算器不支持该架构，需扩展计算模型。'
+      },
+      'LLaMA-70B': {
+        name: 'LLaMA-70B',
+        total_params_b: 70,
+        active_params_b: 70,
+        num_layers: 80,
+        num_kv_heads: 8,
+        head_dim: 128,
+        kv_lora_rank: 0,
+        qk_rope_head_dim: 0,
+        n_routed_experts: 0,
+        num_experts_per_tok: 0,
+        weight_dtype: 'fp16',
+        max_context_length: 8192,
+      },
+    };
+
+    let servers = [];
+    let selectedIds = new Set();
+    let lastResult = null;
+
+    // GPU 型号变化时自动填充参数
+    function autoFillGpuSpec() {
+      const model = document.getElementById('gpuModel').value;
+      if (model && GPU_DATABASE[model]) {
+        const spec = GPU_DATABASE[model];
+        document.getElementById('gpuMemoryGB').value = spec.memory_gb;
+        document.getElementById('gpuMemoryBandwidthGBS').value = spec.bandwidth_gbs;
+        document.getElementById('gpuFP16TFLOPS').value = spec.fp16_tflops;
+        if (spec.fp8_tflops > 0) {
+          document.getElementById('gpuFP8TFLOPS').value = spec.fp8_tflops;
+        }
+        showToast(`已自动填充 ${model} 规格参数`);
+      }
+    }
+
+    function addServer() {
+      const name = document.getElementById('serverName').value.trim();
+      const price = parseFloat(document.getElementById('price').value);
+      const gpuModel = document.getElementById('gpuModel').value;
+
+      if (!name || !price || !gpuModel) {
+        showToast('请填写必填项：配置名称、价格、GPU型号');
+        return;
+      }
+
+      const server = {
+        id: Date.now().toString(),
+        name,
+        price,
+        gpu_model: gpuModel,
+        gpu_count: parseInt(document.getElementById('gpuCount').value) || 8,
+        cpu: document.getElementById('cpu').value.trim(),
+        memory_gb: parseInt(document.getElementById('memoryGB').value) || 0,
+        data_disk: document.getElementById('dataDisk').value.trim(),
+        system_disk: document.getElementById('systemDisk').value.trim(),
+        network: document.getElementById('network').value.trim(),
+        ib_card: document.getElementById('ibCard').value.trim(),
+        power: document.getElementById('power').value.trim(),
+        gpu_memory_gb: parseFloat(document.getElementById('gpuMemoryGB').value) || 0,
+        gpu_memory_bandwidth_gbs: parseFloat(document.getElementById('gpuMemoryBandwidthGBS').value) || 0,
+        gpu_fp16_tflops: parseFloat(document.getElementById('gpuFP16TFLOPS').value) || 0,
+        gpu_fp8_tflops: parseFloat(document.getElementById('gpuFP8TFLOPS').value) || 0,
+      };
+
+      servers.push(server);
+      updateServerList();
+      clearForm();
+      showToast(`✅ 已添加配置：${name}`);
+    }
+
+    function updateServerList() {
+      const listDiv = document.getElementById('serverList');
+      const countSpan = document.getElementById('serverCount');
+      const calcBtn = document.getElementById('calculateBtn');
+
+      countSpan.textContent = servers.length;
+      calcBtn.disabled = selectedIds.size < 2;
+
+      if (servers.length === 0) {
+        listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无配置，请添加服务器配置</p>';
+        return;
+      }
+
+      listDiv.innerHTML = servers.map(server => `
+        <div class="server-item ${selectedIds.has(server.id) ? 'selected' : ''}" onclick="toggleSelect('${server.id}')">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3>${server.name} ${selectedIds.has(server.id) ? '✓' : ''}</h3>
+            <button class="btn btn-danger" onclick="event.stopPropagation(); removeServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">删除</button>
+          </div>
+          <div class="info">
+            <div><span>价格：</span><strong>${server.price}万元</strong></div>
+            <div><span>GPU：</span><strong>${server.gpu_model} × ${server.gpu_count}</strong></div>
+            <div><span>显存：</span><strong>${server.gpu_memory_gb}GB/卡</strong></div>
+            <div><span>带宽：</span><strong>${server.gpu_memory_bandwidth_gbs}GB/s</strong></div>
+            <div><span>FP16：</span><strong>${server.gpu_fp16_tflops}TFLOPS</strong></div>
+            ${server.cpu ? `<div><span>CPU：</span><strong>${server.cpu}</strong></div>` : ''}
+            ${server.memory_gb ? `<div><span>内存：</span><strong>${server.memory_gb}GB</strong></div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleSelect(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      updateServerList();
+    }
+
+    function removeServer(id) {
+      const server = servers.find(s => s.id === id);
+      servers = servers.filter(s => s.id !== id);
+      selectedIds.delete(id);
+      updateServerList();
+      showToast(`🗑️ 已删除配置：${server.name}`);
+    }
+
+    function clearForm() {
+      ['serverName', 'price', 'cpu', 'memoryGB', 'dataDisk', 'systemDisk', 'network', 'ibCard', 'power', 'gpuMemoryGB', 'gpuMemoryBandwidthGBS', 'gpuFP16TFLOPS', 'gpuFP8TFLOPS'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('gpuModel').value = '';
+      document.getElementById('gpuCount').value = '8';
+    }
+
+    function clearAll() {
+      if (confirm('确定要清空所有配置吗？')) {
+        servers = [];
+        selectedIds.clear();
+        updateServerList();
+        document.getElementById('resultSection').classList.add('hidden');
+        showToast('🗑️ 已清空所有配置');
+      }
+    }
+
+    // 测算引擎
+    function calculate() {
+      if (selectedIds.size < 2) {
+        showToast('⚠️ 请至少选择 2 个配置进行对比');
+        return;
+      }
+
+      const modelName = document.getElementById('modelName').value;
+      const model = MODEL_DATABASE[modelName];
+      
+      const business = {
+        model_name: modelName,
+        cache_hit_rate: parseFloat(document.getElementById('cacheHitRate').value) / 100,
+        avg_input_tokens: parseInt(document.getElementById('avgInputTokens').value),
+        avg_output_tokens: parseInt(document.getElementById('avgOutputTokens').value),
+        kv_cache_dtype: document.getElementById('kvCacheDtype').value,
+        decode_efficiency: parseFloat(document.getElementById('decodeEfficiency').value),
+        prefill_efficiency: parseFloat(document.getElementById('prefillEfficiency').value),
+      };
+
+      const selectedServers = servers.filter(s => selectedIds.has(s.id));
+      const results = selectedServers.map(server => calculateServer(server, model, business));
+      
+      // 排序：统一以「输出吞吐」为准，与线上实测口径一致。
+      results.sort((a, b) => b.throughput_analysis.output_throughput_tps - a.throughput_analysis.output_throughput_tps);
+      results.forEach((r, i) => r.rank_throughput = i + 1);
+
+      // 算不出吞吐的配置无法承载当前模型，不参与性价比排名，避免被误判为"最划算"。
+      const costSorted = results.filter(r => r.throughput_analysis.output_throughput_tps > 0)
+        .sort((a, b) => a.cost_efficiency.price_per_tps - b.cost_efficiency.price_per_tps);
+      costSorted.forEach((r, i) => r.rank_cost = i + 1);
+      results.filter(r => r.throughput_analysis.output_throughput_tps === 0).forEach(r => r.rank_cost = 0);
+
+      lastResult = { business, comparison: results };
+      displayResults(lastResult);
+    }
+
+    function calculateServer(server, model, business) {
+      if (model.calculation_supported === false) {
+        return {
+          server_name: server.name,
+          price_wan: server.price,
+          gpu_count: server.gpu_count,
+          layout: { tensor_parallel: 0, instances: 0 },
+          memory_analysis: {
+            weight_total_gb: 0,
+            kv_per_token_bytes: 0,
+            available_kv_memory_gb: 0,
+            max_cacheable_tokens: 0,
+            max_batch_by_kv: 0,
+            max_batch_by_compute: 0,
+          },
+          throughput_analysis: {
+            concurrency: 0,
+            decode_step_ms: 0,
+            prefill_ms: 0,
+            request_rate: 0,
+            output_throughput_tps: 0,
+            total_equivalent_tps: 0,
+          },
+          cost_efficiency: { price_per_tps: 0, unit: '元/(tok/s)' },
+          rank_throughput: 0,
+          rank_cost: 0,
+          sla: { meets_ttft: false, meets_tpot: false },
+          notes: [model.note || '该模型架构当前不支持测算'],
+        };
+      }
+
+      const gpu = GPU_DATABASE[server.gpu_model] || {
+        memory_gb: server.gpu_memory_gb,
+        bandwidth_gbs: server.gpu_memory_bandwidth_gbs,
+        fp16_tflops: server.gpu_fp16_tflops,
+        fp8_tflops: server.gpu_fp8_tflops,
+      };
+
+      const tp = Math.min(server.gpu_count, 8);
+      const instances = Math.floor(server.gpu_count / tp);
+
+      // 权重显存
+      const weightTotalGb = model.total_params_b;
+      const densePerGpu = (denseParamsB(model) * 1e9) / tp;
+      const routedPerGpu = (routedParamsB(model) * 1e9) / tp;
+
+      // KV cache
+      const kvPerToken = model.num_layers * (model.kv_lora_rank + model.qk_rope_head_dim);
+      const usableGb = gpu.memory_gb * tp * 0.9;
+      const availableKvGb = Math.max(0, usableGb - weightTotalGb - weightTotalGb * 0.1);
+
+      const sequenceTokens = business.avg_input_tokens + business.avg_output_tokens;
+      const maxCacheable = Math.floor((availableKvGb * 1e9) / kvPerToken);
+      const maxBatchByKv = Math.max(0, Math.floor(maxCacheable / sequenceTokens));
+
+      if (availableKvGb <= 0 || maxBatchByKv <= 0) {
+        return {
+          server_name: server.name,
+          price_wan: server.price,
+          gpu_model: server.gpu_model,
+          gpu_count: server.gpu_count,
+          layout: { tensor_parallel: tp, instances },
+          memory_analysis: {
+            weight_total_gb: weightTotalGb,
+            kv_per_token_bytes: kvPerToken,
+            available_kv_memory_gb: availableKvGb,
+            max_cacheable_tokens: maxCacheable,
+            max_batch_by_kv: maxBatchByKv,
+            max_batch_by_compute: 0,
+          },
+          throughput_analysis: {
+            concurrency: 0,
+            decode_step_ms: 0,
+            prefill_ms: 0,
+            request_rate: 0,
+            output_throughput_tps: 0,
+            total_equivalent_tps: 0,
+          },
+          cost_efficiency: { price_per_tps: 0, unit: '元/TPS' },
+          rank_throughput: 0,
+          rank_cost: 0,
+          sla: { meets_ttft: false, meets_tpot: false },
+          notes: ['该配置无法承载当前模型'],
+        };
+      }
+
+      const effectiveBandwidth = gpu.bandwidth_gbs * business.decode_efficiency;
+      const flopsPerTokenPerGpu = (2 * model.active_params_b * 1e9) / tp;
+      const gpuFlops = gpu.fp16_tflops * 1e12 * business.prefill_efficiency;
+
+      let concurrency = maxBatchByKv;
+      let decodeStep = 0;
+      for (let i = 0; i < 8; i++) {
+        const access = expertAccessFraction(model, concurrency);
+        const bytesRead = densePerGpu + routedPerGpu * access;
+        decodeStep = bytesRead / (effectiveBandwidth * 1e9);
+        const computeLimit = Math.floor((decodeStep * gpuFlops) / flopsPerTokenPerGpu);
+        const next = Math.max(0, Math.min(maxBatchByKv, computeLimit));
+        if (next === concurrency) break;
+        concurrency = next;
+      }
+
+      if (concurrency <= 0) {
+        return {
+          server_name: server.name,
+          price_wan: server.price,
+          gpu_model: server.gpu_model,
+          gpu_count: server.gpu_count,
+          layout: { tensor_parallel: tp, instances },
+          memory_analysis: {
+            weight_total_gb: weightTotalGb,
+            kv_per_token_bytes: kvPerToken,
+            available_kv_memory_gb: availableKvGb,
+            max_cacheable_tokens: maxCacheable,
+            max_batch_by_kv: maxBatchByKv,
+            max_batch_by_compute: 0,
+          },
+          throughput_analysis: {
+            concurrency: 0,
+            decode_step_ms: 0,
+            prefill_ms: 0,
+            request_rate: 0,
+            output_throughput_tps: 0,
+            total_equivalent_tps: 0,
+          },
+          cost_efficiency: { price_per_tps: 0, unit: '元/TPS' },
+          rank_throughput: 0,
+          rank_cost: 0,
+          sla: { meets_ttft: false, meets_tpot: false },
+          notes: ['算力不足，无法承载当前模型'],
+        };
+      }
+
+      const access = expertAccessFraction(model, concurrency);
+      const bytesRead = densePerGpu + routedPerGpu * access;
+      const decodeStepSeconds = bytesRead / (effectiveBandwidth * 1e9);
+      const computeStep = (concurrency * flopsPerTokenPerGpu) / gpuFlops;
+      const step = Math.max(decodeStepSeconds, computeStep);
+
+      const instancePrefillTokens = (gpuFlops * tp) / flopsPerTokenPerGpu;
+      const prefillSeconds = business.avg_input_tokens * (1 - business.cache_hit_rate) / instancePrefillTokens;
+      const requestSeconds = prefillSeconds + (business.avg_output_tokens * step) / concurrency;
+      const requestRate = (1 / requestSeconds) * instances;
+      const totalTps = Math.floor(requestRate * sequenceTokens);
+      const outputTps = Math.floor((instances * concurrency) / step);
+
+      return {
+        server_name: server.name,
+        price_wan: server.price,
+        gpu_model: server.gpu_model,
+        gpu_count: server.gpu_count,
+        layout: { tensor_parallel: tp, instances },
+        memory_analysis: {
+          weight_total_gb: weightTotalGb,
+          kv_per_token_bytes: kvPerToken,
+          available_kv_memory_gb: availableKvGb,
+          max_cacheable_tokens: maxCacheable,
+          max_batch_by_kv: maxBatchByKv,
+          max_batch_by_compute: Math.floor((decodeStepSeconds * gpuFlops) / flopsPerTokenPerGpu),
+        },
+        throughput_analysis: {
+          concurrency,
+          decode_step_ms: step * 1000,
+          prefill_ms: prefillSeconds * 1000,
+          request_rate: requestRate,
+          // 主指标：输出 token 吞吐，与线上实测口径一致（可直接对标 3401 tok/s）。
+          output_throughput_tps: outputTps,
+          // 参考指标：把输入 token 的处理量也折算进来，口径更大，不能与实测直接比对。
+          total_equivalent_tps: totalTps,
+        },
+        cost_efficiency: {
+          // 每单位输出吞吐的整机成本：outputTps 为 0 时置 0，避免被误判为最划算。
+          price_per_tps: outputTps > 0 ? Number(((server.price / outputTps) * 10000).toFixed(2)) : 0,
+          unit: '元/(tok/s)',
+        },
+        rank_throughput: 0,
+        rank_cost: 0,
+        sla: {
+          meets_ttft: prefillSeconds * 1000 <= 2000,
+          meets_tpot: step * 1000 <= 50,
+        },
+        notes: [],
+      };
+    }
+
+    function denseParamsB(model) {
+      if (!model.n_routed_experts) return model.total_params_b;
+      const perExpert = (model.total_params_b - model.active_params_b) / (model.n_routed_experts - model.num_experts_per_tok);
+      return Math.max(0, model.active_params_b - model.num_experts_per_tok * perExpert);
+    }
+
+    function routedParamsB(model) {
+      if (!model.n_routed_experts) return 0;
+      const perExpert = (model.total_params_b - model.active_params_b) / (model.n_routed_experts - model.num_experts_per_tok);
+      return Math.max(0, perExpert * model.n_routed_experts);
+    }
+
+    function expertAccessFraction(model, batch) {
+      const total = model.n_routed_experts;
+      const perToken = model.num_experts_per_tok;
+      if (batch <= 0) return perToken / total;
+      return Math.min(1, 1 - Math.pow(1 - perToken / total, batch));
+    }
+
+    function displayResults(result) {
+      const resultSection = document.getElementById('resultSection');
+      const resultContent = document.getElementById('resultContent');
+      resultSection.classList.remove('hidden');
+
+      const businessInfo = `
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+          <h3 style="margin-bottom: 15px;">业务场景参数</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div><strong>模型：</strong>${result.business.model_name}</div>
+            <div><strong>缓存命中率：</strong>${(result.business.cache_hit_rate * 100).toFixed(2)}%</div>
+            <div><strong>平均输入：</strong>${result.business.avg_input_tokens.toLocaleString()} tokens</div>
+            <div><strong>平均输出：</strong>${result.business.avg_output_tokens} tokens</div>
+            <div><strong>KV Cache精度：</strong>${result.business.kv_cache_dtype.toUpperCase()}</div>
+          </div>
+        </div>
+      `;
+
+      const resultCards = result.comparison.map(r => `
+        <div class="result-card">
+          <span class="rank-badge">吞吐 #${r.rank_throughput} | 性价比 #${r.rank_cost}</span>
+          <h3>${r.server_name}</h3>
+          <div class="metric">
+            <span class="metric-label">价格</span>
+            <span class="metric-value">${r.price_wan}万元</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">部署布局</span>
+            <span class="metric-value">TP${r.layout.tensor_parallel} × ${r.layout.instances} 实例</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">权重占用</span>
+            <span class="metric-value">${r.memory_analysis.weight_total_gb.toFixed(2)} GB</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">单token KV</span>
+            <span class="metric-value">${r.memory_analysis.kv_per_token_bytes.toFixed(0)} bytes</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">可用KV显存</span>
+            <span class="metric-value">${r.memory_analysis.available_kv_memory_gb.toFixed(2)} GB</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">最大可缓存</span>
+            <span class="metric-value">${r.memory_analysis.max_cacheable_tokens.toLocaleString()} tokens</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Decode限制</span>
+            <span class="metric-value">${r.throughput_analysis.concurrency} 并发</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Prefill延迟</span>
+            <span class="metric-value">${r.throughput_analysis.prefill_ms.toFixed(0)} ms</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">每token延迟</span>
+            <span class="metric-value">${r.throughput_analysis.decode_step_ms.toFixed(2)} ms</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">聚合输出吞吐</span>
+            <span class="metric-value" style="font-size: 22px; color: #ffd700;">${r.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">等效总吞吐</span>
+            <span class="metric-value">${r.throughput_analysis.total_equivalent_tps.toLocaleString()} tok/s</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">单位吞吐成本</span>
+            <span class="metric-value">${r.cost_efficiency.price_per_tps.toFixed(2)} 元/(tok/s)</span>
+          </div>
+        </div>
+      `).join('');
+
+      const bestThroughput = result.comparison[0];
+      const bestCost = result.comparison.find(r => r.rank_cost === 1);
+
+      const summary = `
+        <div class="summary-box">
+          <h3>💡 推荐建议</h3>
+          <div class="recommendation">
+            <div>
+              <strong>🏆 最高吞吐</strong>
+              ${bestThroughput.server_name}<br>
+              ${bestThroughput.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s
+            </div>
+            <div>
+              <strong>💰 最佳性价比</strong>
+              ${bestCost ? bestCost.server_name : '无'}<br>
+              ${bestCost ? bestCost.cost_efficiency.price_per_tps.toFixed(2) + ' 元/TPS' : '无法承载'}
+            </div>
+            <div>
+              <strong>📊 共对比</strong>
+              ${result.comparison.length} 种配置
+            </div>
+          </div>
+        </div>
+      `;
+
+      resultContent.innerHTML = businessInfo + '<div class="result-grid">' + resultCards + '</div>' + summary;
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function exportCSV() {
+      if (!lastResult) {
+        showToast('⚠️ 请先执行测算');
+        return;
+      }
+
+      const rows = [
+        ['配置名称', '价格(万元)', 'GPU型号', 'GPU数量', 'TP度', '实例数', '权重占用(GB)', '可用KV显存(GB)', '并发数', '聚合输出吞吐(tok/s)', '等效总吞吐(tok/s)', '单位成本(元/(tok/s))', '吞吐排名', '性价比排名']
+      ];
+
+      lastResult.comparison.forEach(r => {
+        rows.push([
+          r.server_name,
+          r.price_wan,
+          r.gpu_model,
+          r.gpu_count,
+          r.layout.tensor_parallel,
+          r.layout.instances,
+          r.memory_analysis.weight_total_gb.toFixed(2),
+          r.memory_analysis.available_kv_memory_gb.toFixed(2),
+          r.throughput_analysis.concurrency,
+          r.throughput_analysis.output_throughput_tps,
+          r.throughput_analysis.total_equivalent_tps,
+          r.cost_efficiency.price_per_tps.toFixed(2),
+          r.rank_throughput,
+          r.rank_cost,
+        ]);
+      });
+
+      const csv = rows.map(row => row.join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `server_comparison_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+      showToast('✅ CSV 已导出');
+    }
+
+    // 报价单识别（支持键值对和表格两种格式）
+    function extractQuote() {
+      const text = document.getElementById('quoteText').value.trim();
+      if (!text) {
+        showToast('⚠️ 请粘贴报价单文字');
+        return;
+      }
+
+      const fields = [];
+      
+      // ===== 表格格式识别（按行解析：名称 / 规格 / 单位 / 数量）=====
+      // OCR 会把中文拆字（"机 头""处 理 器""内 存"），先合并中文字符间的空格
+      const normalizedText = text.replace(/([\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])/g, '$1');
+      const rows = normalizedText.split('\n').map(r => r.trim()).filter(r => r.length > 0);
+      // 名称 → 字段映射表（键为合并后的标准字段名，包含 OCR 常见误读）
+      const nameToField = {
+        '机头': 'serverName', '名称': 'serverName', '机型': 'serverName',
+        '处理器': 'cpu', 'CPU': 'cpu',
+        '内存': 'memory_gb',
+        '系统盘': 'system_disk',
+        '数据盘': 'data_disk',
+        '网卡': 'network',
+        '网卡2': 'network2', 'IB卡': 'ib_card', 'IB': 'ib_card',
+        'GPU卡': 'gpu', 'GPU': 'gpu', 'GPUF': 'gpu', '显卡': 'gpu',
+        '阵列卡': 'raid_card',
+        '电源': 'power',
+      };
+      // 单位量词，用于从行末剥离"单位+数量"列
+      const unitWords = /台|个|块|片|根|颗|张|套|组/;
+      for (const row of rows) {
+        // 跳过表头（更宽松的匹配）
+        if (/^(名称|规格|型号|单位|数量|规格型号)/.test(row) && row.length < 20) continue;
+        if (/^(名称\s+规格|名称\s+规格型号)/.test(row)) continue;
+        // 拆分：第一个 token 是名称，最后一个数字是数量，倒数第二个如果是单位量词则也剥离
+        const tokens = row.split(/\s+/);
+        if (tokens.length < 2) continue;
+        const name = tokens[0];
+        const field = nameToField[name];
+        if (!field) continue;
+        // 剥离末尾的数量
+        let qty = '';
+        let specEnd = tokens.length;
+        if (/^\d+$/.test(tokens[tokens.length - 1])) {
+          qty = tokens[tokens.length - 1];
+          specEnd--;
+        }
+        // 剥离末尾的单位量词
+        if (specEnd > 1 && unitWords.test(tokens[specEnd - 1])) {
+          specEnd--;
+        }
+        const spec = tokens.slice(1, specEnd).join(' ');
+        if (field === 'memory_gb') {
+          // 内存行：提取单根容量 × 数量（OCR 可能把 G 误读为 C）
+          const capMatch = spec.match(/(\d+)\s*[GgCc]/);
+          if (capMatch && qty) {
+            fields.push({ field: 'memory_gb', value: String(parseInt(capMatch[1]) * parseInt(qty)), confidence: 0.7 });
+          } else if (capMatch) {
+            fields.push({ field: 'memory_gb', value: capMatch[1], confidence: 0.6 });
+          }
+        } else if (field === 'gpu') {
+          // GPU 行：识别型号 + 数量（OCR 可能误读：PRO6000→PR06000/FR06000）
+          let gpuModel = '';
+          const compactSpec = spec.replace(/\s+/g, '').toUpperCase();
+          if (/P?R?0?6000|PRO6000|FR06000/.test(compactSpec)) gpuModel = 'RTX PRO 6000';
+          else if (/H200/.test(compactSpec)) gpuModel = 'H200';
+          else if (/H100/.test(compactSpec)) gpuModel = 'H100';
+          else if (/A100/.test(compactSpec)) gpuModel = 'A100';
+          else if (/A800/.test(compactSpec)) gpuModel = 'A800';
+          else if (/910C/.test(compactSpec)) gpuModel = 'Ascend 910C';
+          else if (/910B/.test(compactSpec)) gpuModel = 'Ascend 910B';
+          else if (/MI300X/.test(compactSpec)) gpuModel = 'MI300X';
+          else if (/MI325X/.test(compactSpec)) gpuModel = 'MI325X';
+          if (gpuModel) fields.push({ field: 'gpu_model', value: gpuModel, confidence: 0.8 });
+          if (qty) fields.push({ field: 'gpu_count', value: qty, confidence: 0.8 });
+        } else if (field === 'serverName') {
+          // 机头：用规格作为配置名称
+          if (spec) fields.push({ field: 'serverName', value: spec, confidence: 0.7 });
+        } else {
+          // 其他字段：直接用规格
+          if (spec) fields.push({ field, value: spec, confidence: 0.7 });
+        }
+      }
+
+      // ===== 键值对格式识别（原有逻辑） =====
+      // 价格
+      const priceMatch = text.match(/总价\s*[:：]?\s*([\d.]+)/);
+      if (priceMatch) fields.push({ field: 'price', value: priceMatch[1], confidence: 0.6 });
+
+      // GPU型号（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'gpu_model')) {
+        const gpuModelMatch = text.match(/(H200|H100|A100|A800|910C|910B|RTX PRO 6000|MI300X|MI325X)/i);
+        if (gpuModelMatch) fields.push({ field: 'gpu_model', value: gpuModelMatch[1], confidence: 0.6 });
+      }
+
+      // GPU数量（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'gpu_count')) {
+        const gpuCountMatch = text.match(/(\d+)\s*卡/) || text.match(/[xX×]\s*(\d+)/);
+        if (gpuCountMatch) fields.push({ field: 'gpu_count', value: gpuCountMatch[1], confidence: 0.6 });
+      }
+
+      // CPU（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'cpu')) {
+        const cpuKVMatch = text.match(/CPU\s*[:：]\s*(.+)/i);
+        if (cpuKVMatch) fields.push({ field: 'cpu', value: cpuKVMatch[1].trim(), confidence: 0.6 });
+      }
+
+      // 内存（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'memory_gb')) {
+        const memKVMatch = text.match(/内存\s*[:：]?\s*(\d+)\s*([TtGg])/);
+        if (memKVMatch) {
+          const val = parseInt(memKVMatch[1]);
+          const unit = memKVMatch[2].toUpperCase();
+          fields.push({ field: 'memory_gb', value: String(unit === 'T' ? val * 1024 : val), confidence: 0.6 });
+        }
+      }
+
+      // 数据盘（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'data_disk')) {
+        const dataDiskKVMatch = text.match(/数据盘\s*[:：]\s*(.+)/);
+        if (dataDiskKVMatch) fields.push({ field: 'data_disk', value: dataDiskKVMatch[1].trim(), confidence: 0.6 });
+      }
+
+      // 系统盘（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'system_disk')) {
+        const sysDiskKVMatch = text.match(/系统盘\s*[:：]\s*(.+)/);
+        if (sysDiskKVMatch) fields.push({ field: 'system_disk', value: sysDiskKVMatch[1].trim(), confidence: 0.6 });
+      }
+
+      // 网卡（如果表格格式没识别到）
+      if (!fields.find(f => f.field === 'network')) {
+        const networkKVMatch = text.match(/网卡\s*[:：]\s*(.+)/);
+        if (networkKVMatch) fields.push({ field: 'network', value: networkKVMatch[1].trim(), confidence: 0.6 });
+      }
+
+      // IB卡
+      const ibMatch = text.match(/IB卡\s*[:：]\s*(.+)/);
+      if (ibMatch) fields.push({ field: 'ib_card', value: ibMatch[1].trim(), confidence: 0.6 });
+
+      // 电源
+      const powerMatch = text.match(/电源\s*[:：]\s*(.+)/);
+      if (powerMatch) fields.push({ field: 'power', value: powerMatch[1].trim(), confidence: 0.6 });
+
+      if (fields.length === 0) {
+        showToast('⚠️ 未能识别任何字段');
+        return;
+      }
+
+      // 显示结果
+      const resultDiv = document.getElementById('extractResult');
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `
+        <h4>识别结果（${fields.length} 个字段）</h4>
+        ${fields.map(f => `
+          <div class="field">
+            <span class="field-name">${f.field}</span>
+            <span class="field-value">${f.value}</span>
+            <span class="field-confidence">${(f.confidence * 100).toFixed(0)}%</span>
+          </div>
+        `).join('')}
+        <div style="margin-top: 15px;">
+          <button class="btn btn-primary" onclick="applyExtraction()">✅ 应用到表单</button>
+        </div>
+      `;
+
+      window.extractedFields = fields;
+      showToast(`✅ 识别完成，共 ${fields.length} 个字段`);
+    }
+
+    function applyExtraction() {
+      if (!window.extractedFields) return;
+
+      const fieldMap = {
+        'serverName': 'serverName',
+        'price': 'price',
+        'gpu_model': 'gpuModel',
+        'gpu_count': 'gpuCount',
+        'cpu': 'cpu',
+        'memory_gb': 'memoryGB',
+        'data_disk': 'dataDisk',
+        'system_disk': 'systemDisk',
+        'network': 'network',
+        'network2': 'ibCard',
+        'ib_card': 'ibCard',
+        'raid_card': 'raidCard',
+        'power': 'power',
+      };
+
+      const applied = new Set();
+      const skipped = [];
+      window.extractedFields.forEach(f => {
+        const inputId = fieldMap[f.field];
+        const input = inputId && document.getElementById(inputId);
+        if (!input) { skipped.push(f.field + '（无对应输入项）'); return; }
+        let value = String(f.value ?? '').trim();
+        if (!value) return;
+        if (inputId === 'gpuModel') {
+          const compact = value.replace(/\s+/g, '').toUpperCase();
+          if (/PRO6000/.test(compact)) value = 'RTX PRO 6000';
+          else if (/910C/.test(compact)) value = 'Ascend 910C';
+          else if (/910B/.test(compact)) value = 'Ascend 910B';
+          else value = Array.from(input.options).find(o => o.value.toUpperCase() === compact)?.value || value;
+          if (!Array.from(input.options).some(o => o.value === value)) {
+            skipped.push('GPU型号未匹配：' + value); return;
+          }
+        }
+        input.value = value;
+        if (input.value !== value) { skipped.push(f.field + '（格式不合法）'); return; }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        applied.add(inputId);
+      });
+      const message = `✅ 已应用 ${applied.size} 个字段到服务器配置录入` +
+        (skipped.length ? '；未应用：' + skipped.join('、') : '');
+      let status = document.getElementById('applyStatus');
+      if (!status) {
+        status = document.createElement('p'); status.id = 'applyStatus';
+        document.getElementById('extractResult').appendChild(status);
+      }
+      status.textContent = message;
+      showToast(message);
+      if (applied.size) document.getElementById('serverName').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 2500);
+    }
+
+    // 初始化
+    updateServerList();
+
+    // ========== 图片处理和 OCR 识别 ==========
+    const dropZone = document.getElementById('dropZone');
+    const imageInput = document.getElementById('imageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const ocrStatus = document.getElementById('ocrStatus');
+    const ocrResult = document.getElementById('ocrResult');
+    let currentImageData = null;
+
+    // 点击上传区域触发文件选择
+    dropZone.addEventListener('click', () => imageInput.click());
+
+    // 文件选择
+    imageInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleImageFile(e.target.files[0]);
+      }
+    });
+
+    // 拖拽上传
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleImageFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    // 粘贴图片（Ctrl+V）
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const blob = items[i].getAsFile();
+          handleImageFile(blob);
+          break;
+        }
+      }
+    });
+
+    // 处理图片文件
+    function handleImageFile(file) {
+      if (!file.type.match('image.*')) {
+        showToast('⚠️ 请选择图片文件');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        currentImageData = e.target.result;
+        previewImg.src = currentImageData;
+        imagePreview.classList.remove('hidden');
+        ocrStatus.textContent = '正在进行 OCR 识别...';
+        ocrResult.classList.add('hidden');
+        
+        // 执行 OCR 识别
+        performOCR(currentImageData);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // OCR 识别
+    async function performOCR(imageData) {
+      try {
+        ocrStatus.textContent = '正在加载 OCR 引擎...';
+        
+        const result = await Tesseract.recognize(
+          imageData,
+          'chi_sim+eng', // 中文简体 + 英文
+          {
+            logger: (m) => {
+              if (m.status === 'recognizing text') {
+                ocrStatus.textContent = `识别进度: ${Math.round(m.progress * 100)}%`;
+              }
+            }
+          }
+        );
+
+        const text = result.data.text;
+        ocrStatus.textContent = '✅ OCR 识别完成';
+        ocrResult.textContent = text;
+        ocrResult.classList.remove('hidden');
+        
+        // 自动填入文本框
+        document.getElementById('quoteText').value = text;
+        window.extractedFields = [];
+        document.getElementById('extractResult').innerHTML = '';
+        extractQuote();
+        showToast('✅ 图片识别完成，已重新提取本次图片的字段');
+        
+      } catch (error) {
+        console.error('OCR 错误:', error);
+        ocrStatus.textContent = '❌ OCR 识别失败: ' + error.message;
+        showToast('⚠️ OCR 识别失败，请手动输入');
+      }
+    }
+
+    // 清除图片
+    function clearImage() {
+      currentImageData = null;
+      previewImg.src = '';
+      imagePreview.classList.add('hidden');
+      ocrResult.classList.add('hidden');
+      imageInput.value = '';
+      showToast('🗑️ 已清除图片');
+    }
+  </script>
+</body>
+</html>
