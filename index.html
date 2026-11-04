@@ -482,7 +482,8 @@ IB卡: 8xHDR 200Gb/s
         </div>
       </div>
       <div class="button-group">
-        <button class="btn btn-primary" onclick="addServer()">➕ 添加配置</button>
+        <button class="btn btn-primary" id="addBtn" onclick="submitServer()">➕ 添加配置</button>
+        <button class="btn btn-secondary hidden" id="cancelEditBtn" onclick="cancelEdit()">↩️ 取消修改</button>
         <button class="btn btn-secondary" onclick="clearForm()">🗑️ 清空表单</button>
       </div>
     </div>
@@ -490,11 +491,16 @@ IB卡: 8xHDR 200Gb/s
     <!-- 已添加配置列表 -->
     <div class="card">
       <h2>📋 已添加配置 (<span id="serverCount">0</span>)</h2>
-      <p style="color: #666; margin-bottom: 15px;">点击配置卡片可勾选/取消，至少选择 2 个配置进行对比</p>
+      <p style="color: #666; margin-bottom: 10px;">点击配置卡片可勾选/取消，至少选择 2 个配置进行对比</p>
+      <p id="saveStatus" style="color: #2c7a4b; margin-bottom: 15px; font-size: 14px;">本地暂无存档配置</p>
       <div id="serverList" class="server-list"></div>
       <div class="button-group" style="margin-top: 20px;">
         <button class="btn btn-primary" onclick="calculate()" id="calculateBtn">🧮 开始测算</button>
         <button class="btn btn-secondary" onclick="exportCSV()">📊 导出 CSV</button>
+        <button class="btn btn-secondary" onclick="exportServers()">📤 导出配置(备份)</button>
+        <label class="btn btn-secondary" style="cursor: pointer; margin: 0;">📥 导入配置
+          <input type="file" accept=".json,application/json" style="display: none;" onchange="importServers(this.files[0]); this.value='';">
+        </label>
         <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空所有</button>
       </div>
     </div>
@@ -609,9 +615,141 @@ IB卡: 8xHDR 200Gb/s
       },
     };
 
+    // ============ 配置档案：本地长期保存 ============
+    // 录入的服务器存在浏览器本地（localStorage），关页面、重启电脑都还在；
+    // 换浏览器或换电脑时用「导出配置 / 导入配置」搬过去。
+    const STORAGE_KEY = 'fando-server-calculator:servers';
+    const STORAGE_VERSION = 1;
+
+    function serializeServers(list) {
+      return JSON.stringify({
+        version: STORAGE_VERSION,
+        saved_at: new Date().toISOString(),
+        servers: list,
+      });
+    }
+
+    function parseServers(text) {
+      let raw;
+      try {
+        raw = JSON.parse(text);
+      } catch (e) {
+        return { ok: false, error: '内容不是合法的 JSON', servers: [], skipped: 0 };
+      }
+      const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.servers) ? raw.servers : null);
+      if (!list) return { ok: false, error: '找不到服务器列表', servers: [], skipped: 0 };
+
+      const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+      const str = (v) => (v === null || v === undefined ? '' : String(v));
+      const cleaned = [];
+      let skipped = 0;
+      for (const item of list) {
+        if (!item || typeof item !== 'object' || !item.name || !item.gpu_model) { skipped += 1; continue; }
+        cleaned.push({
+          id: str(item.id) || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: str(item.name),
+          price: num(item.price, 0),
+          gpu_model: str(item.gpu_model),
+          gpu_count: Math.max(1, Math.round(num(item.gpu_count, 8))),
+          cpu: str(item.cpu),
+          memory_gb: num(item.memory_gb, 0),
+          data_disk: str(item.data_disk),
+          system_disk: str(item.system_disk),
+          network: str(item.network),
+          ib_card: str(item.ib_card),
+          power: str(item.power),
+          gpu_memory_gb: num(item.gpu_memory_gb, 0),
+          gpu_memory_bandwidth_gbs: num(item.gpu_memory_bandwidth_gbs, 0),
+          gpu_fp16_tflops: num(item.gpu_fp16_tflops, 0),
+          gpu_fp8_tflops: num(item.gpu_fp8_tflops, 0),
+        });
+      }
+      return { ok: true, servers: cleaned, skipped };
+    }
+
+    // editingId 为空即新增；给了 id 且能命中就就地更新，避免同一条配置越改越多
+    function upsertServer(list, server, editingId) {
+      if (editingId) {
+        const i = list.findIndex((s) => s.id === editingId);
+        if (i >= 0) {
+          list[i] = Object.assign({}, list[i], server, { id: editingId });
+          return { list, mode: 'update' };
+        }
+      }
+      list.push(Object.assign({}, server, { id: server.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }));
+      return { list, mode: 'add' };
+    }
+
     let servers = [];
     let selectedIds = new Set();
     let lastResult = null;
+    let editingId = null;
+    let lastSavedAt = null;
+
+    function saveServers() {
+      try {
+        localStorage.setItem(STORAGE_KEY, serializeServers(servers));
+        lastSavedAt = new Date();
+        updateSaveStatus();
+        return true;
+      } catch (e) {
+        showToast('⚠️ 本地保存失败（浏览器存储不可用或已满）：' + e.message);
+        return false;
+      }
+    }
+
+    function loadServers() {
+      let text = null;
+      try { text = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
+      if (!text) return;
+      const r = parseServers(text);
+      if (!r.ok) { showToast('⚠️ 本地存档无法读取：' + r.error); return; }
+      servers = r.servers;
+      try { const raw = JSON.parse(text); if (raw && raw.saved_at) lastSavedAt = new Date(raw.saved_at); } catch (e) {}
+      if (r.skipped) showToast(`已恢复 ${servers.length} 台配置，跳过 ${r.skipped} 条异常记录`);
+    }
+
+    function updateSaveStatus() {
+      const el = document.getElementById('saveStatus');
+      if (!el) return;
+      el.textContent = servers.length === 0
+        ? '本地暂无存档配置'
+        : `本地已存 ${servers.length} 台配置${lastSavedAt ? ' · 最后保存 ' + lastSavedAt.toLocaleString('zh-CN') : ''}`;
+    }
+
+    function exportServers() {
+      if (servers.length === 0) { showToast('⚠️ 还没有配置可导出'); return; }
+      const blob = new Blob([serializeServers(servers)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `服务器配置_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showToast(`📤 已导出 ${servers.length} 台配置`);
+    }
+
+    function importServers(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = parseServers(reader.result);
+        if (!r.ok) { showToast('⚠️ 导入失败：' + r.error); return; }
+        let added = 0, updated = 0;
+        for (const s of r.servers) {
+          const u = upsertServer(servers, s, s.id);
+          servers = u.list;
+          if (u.mode === 'update') updated += 1; else added += 1;
+        }
+        saveServers();
+        updateServerList();
+        showToast(`📥 导入完成：新增 ${added} 台，更新 ${updated} 台`);
+      };
+      reader.onerror = () => showToast('⚠️ 文件读取失败');
+      reader.readAsText(file);
+    }
 
     // GPU 型号变化时自动填充参数
     function autoFillGpuSpec() {
@@ -628,7 +766,7 @@ IB卡: 8xHDR 200Gb/s
       }
     }
 
-    function addServer() {
+    function submitServer() {
       const name = document.getElementById('serverName').value.trim();
       const price = parseFloat(document.getElementById('price').value);
       const gpuModel = document.getElementById('gpuModel').value;
@@ -657,10 +795,55 @@ IB卡: 8xHDR 200Gb/s
         gpu_fp8_tflops: parseFloat(document.getElementById('gpuFP8TFLOPS').value) || 0,
       };
 
-      servers.push(server);
+      const r = upsertServer(servers, server, editingId);
+      servers = r.list;
+      const wasEditing = r.mode === 'update';
+      editingId = null;
+      saveServers();
       updateServerList();
       clearForm();
-      showToast(`✅ 已添加配置：${name}`);
+      updateFormMode();
+      showToast(wasEditing ? `✅ 已更新配置：${name}` : `✅ 已保存配置：${name}`);
+    }
+
+    // 把已保存的配置回填到表单，改完点「保存修改」就地更新，不会新增重复项
+    function editServer(id) {
+      const s = servers.find((x) => x.id === id);
+      if (!s) return;
+      editingId = id;
+      const set = (elId, v) => { document.getElementById(elId).value = (v === 0 || v) ? v : ''; };
+      set('serverName', s.name);
+      set('price', s.price);
+      document.getElementById('gpuModel').value = s.gpu_model || '';
+      set('gpuCount', s.gpu_count);
+      set('cpu', s.cpu);
+      set('memoryGB', s.memory_gb);
+      set('dataDisk', s.data_disk);
+      set('systemDisk', s.system_disk);
+      set('network', s.network);
+      set('ibCard', s.ib_card);
+      set('power', s.power);
+      set('gpuMemoryGB', s.gpu_memory_gb);
+      set('gpuMemoryBandwidthGBS', s.gpu_memory_bandwidth_gbs);
+      set('gpuFP16TFLOPS', s.gpu_fp16_tflops);
+      set('gpuFP8TFLOPS', s.gpu_fp8_tflops);
+      updateFormMode();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showToast(`✏️ 正在修改：${s.name}`);
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      clearForm();
+      updateFormMode();
+      showToast('已取消修改，未改动已保存的配置');
+    }
+
+    function updateFormMode() {
+      const btn = document.getElementById('addBtn');
+      if (btn) btn.textContent = editingId ? '💾 保存修改' : '➕ 添加配置';
+      const c = document.getElementById('cancelEditBtn');
+      if (c) c.classList.toggle('hidden', !editingId);
     }
 
     function updateServerList() {
@@ -670,6 +853,7 @@ IB卡: 8xHDR 200Gb/s
 
       countSpan.textContent = servers.length;
       calcBtn.disabled = selectedIds.size < 2;
+      updateSaveStatus();
 
       if (servers.length === 0) {
         listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无配置，请添加服务器配置</p>';
@@ -680,7 +864,10 @@ IB卡: 8xHDR 200Gb/s
         <div class="server-item ${selectedIds.has(server.id) ? 'selected' : ''}" onclick="toggleSelect('${server.id}')">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3>${server.name} ${selectedIds.has(server.id) ? '✓' : ''}</h3>
-            <button class="btn btn-danger" onclick="event.stopPropagation(); removeServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">删除</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary" onclick="event.stopPropagation(); editServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">✏️ 修改</button>
+              <button class="btn btn-danger" onclick="event.stopPropagation(); removeServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">删除</button>
+            </div>
           </div>
           <div class="info">
             <div><span>价格：</span><strong>${server.price}万元</strong></div>
@@ -708,6 +895,8 @@ IB卡: 8xHDR 200Gb/s
       const server = servers.find(s => s.id === id);
       servers = servers.filter(s => s.id !== id);
       selectedIds.delete(id);
+      if (editingId === id) { editingId = null; clearForm(); updateFormMode(); }
+      saveServers();
       updateServerList();
       showToast(`🗑️ 已删除配置：${server.name}`);
     }
@@ -724,7 +913,10 @@ IB卡: 8xHDR 200Gb/s
       if (confirm('确定要清空所有配置吗？')) {
         servers = [];
         selectedIds.clear();
+        editingId = null;
+        saveServers();
         updateServerList();
+        updateFormMode();
         document.getElementById('resultSection').classList.add('hidden');
         showToast('🗑️ 已清空所有配置');
       }
@@ -1582,6 +1774,11 @@ IB卡: 8xHDR 200Gb/s
       imageInput.value = '';
       showToast('🗑️ 已清除图片');
     }
+
+    // 启动即恢复本地存档，让录入的配置跨会话保留
+    loadServers();
+    updateServerList();
+    updateFormMode();
   </script>
 </body>
 </html>
