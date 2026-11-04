@@ -345,11 +345,23 @@
           <input type="number" id="avgOutputTokens" value="255" min="1">
         </div>
         <div class="form-group">
+          <label>权重精度</label>
+          <select id="weightDtype">
+            <option value="auto">自动（跟随模型）</option>
+            <option value="fp16">FP16</option>
+            <option value="bf16">BF16</option>
+            <option value="fp8">FP8</option>
+            <option value="fp4">FP4</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>KV Cache精度</label>
           <select id="kvCacheDtype">
+            <option value="auto">自动（跟随模型）</option>
             <option value="fp8">FP8</option>
             <option value="fp16">FP16</option>
             <option value="bf16">BF16</option>
+            <option value="fp4">FP4</option>
           </select>
         </div>
         <div class="form-group">
@@ -536,67 +548,65 @@ IB卡: 8xHDR 200Gb/s
         name: 'DeepSeek-V4-Flash',
         total_params_b: 671,
         active_params_b: 32,
-        num_layers: 61,
-        num_kv_heads: 128,
-        head_dim: 128,
+        num_layers: 43,
+        num_kv_heads: 1,
+        head_dim: 512,
+        q_lora_rank: 1024,
+        o_lora_rank: 1024,
         kv_lora_rank: 512,
         qk_rope_head_dim: 64,
         n_routed_experts: 256,
-        num_experts_per_tok: 8,
+        num_experts_per_tok: 6,
+        n_shared_experts: 1,
+        moe_intermediate_size: 2048,
         weight_dtype: 'fp8',
-        max_context_length: 131072,
-        hidden_size: 7168,
+        expert_dtype: 'fp4',
+        kv_dtype: 'fp8',
+        max_context_length: 1048576,
+        hidden_size: 4096,
+        source: 'huggingface',
+        source_url: 'https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/main/config.json',
       },
       'DeepSeek-V3': {
         name: 'DeepSeek-V3',
         total_params_b: 671,
         active_params_b: 37,
         num_layers: 61,
-        num_kv_heads: 128,
+        num_kv_heads: 1,
         head_dim: 128,
         kv_lora_rank: 512,
         qk_rope_head_dim: 64,
         n_routed_experts: 256,
         num_experts_per_tok: 8,
         weight_dtype: 'fp8',
+        expert_dtype: 'fp8',
+        kv_dtype: 'fp8',
         max_context_length: 131072,
         hidden_size: 7168,
       },
       'DeepSeek-V4.1-Flash': {
         name: 'DeepSeek-V4.1-Flash',
-        backbone_params_b: 552,
-        engram_params_b: 196,
-        active_prefill_params_b: 8,
-        active_decode_params_b: 16,
+        total_params_b: 748,
+        active_params_b: 16,
         num_layers: 40,
+        num_kv_heads: 1,
+        head_dim: 512,
+        q_lora_rank: 1280,
+        o_lora_rank: 1024,
+        kv_lora_rank: 512,
+        qk_rope_head_dim: 64,
         n_routed_experts: 384,
         num_experts_per_tok: 6,
-        max_context_length: 1048576,
-        global_kv_fp4_bytes_per_token: 890,
+        n_shared_experts: 1,
+        moe_intermediate_size: 2304,
         weight_dtype: 'fp8',
         expert_dtype: 'fp4',
-        calculation_supported: false,
-        raw_config: {
-          text_config: {
-            num_hidden_layers: 40,
-            hidden_size: 5120,
-            moe_intermediate_size: 2304,
-            num_attention_heads: 64,
-            num_key_value_heads: 1,
-            head_dim: 512,
-            qk_rope_head_dim: 64,
-            q_lora_rank: 1280,
-            o_lora_rank: 1024,
-            n_routed_experts: 384,
-            n_shared_experts: 1,
-            num_experts_per_tok: 6,
-            sliding_window: 128,
-            max_position_embeddings: 1048576,
-          }
-        },
+        kv_dtype: 'fp4',
+        global_kv_fp4_bytes_per_token: 890,
+        max_context_length: 1048576,
+        hidden_size: 5120,
         source: 'huggingface',
         source_url: 'https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/raw/main/config.json',
-        note: 'V4.1 采用 CED 架构 + CSA2 注意力 + FP4 KV，与 V3/V4 的 MLA 公式不兼容。当前测算器不支持该架构，需扩展计算模型。'
       },
       'LLaMA-70B': {
         name: 'LLaMA-70B',
@@ -610,6 +620,8 @@ IB卡: 8xHDR 200Gb/s
         n_routed_experts: 0,
         num_experts_per_tok: 0,
         weight_dtype: 'fp16',
+        expert_dtype: 'fp16',
+        kv_dtype: 'fp16',
         max_context_length: 8192,
         hidden_size: 8192,
       },
@@ -937,6 +949,7 @@ IB卡: 8xHDR 200Gb/s
         cache_hit_rate: parseFloat(document.getElementById('cacheHitRate').value) / 100,
         avg_input_tokens: parseInt(document.getElementById('avgInputTokens').value),
         avg_output_tokens: parseInt(document.getElementById('avgOutputTokens').value),
+        weight_dtype: document.getElementById('weightDtype').value,
         kv_cache_dtype: document.getElementById('kvCacheDtype').value,
         decode_efficiency: parseFloat(document.getElementById('decodeEfficiency').value),
         prefill_efficiency: parseFloat(document.getElementById('prefillEfficiency').value),
@@ -968,6 +981,12 @@ IB卡: 8xHDR 200Gb/s
         interconnect: null,
         link_gbs: null,
       };
+
+      // 精度字节数映射：用户选择优先，其次模型默认，最后兜底
+      const DTYPE_BYTES = { fp16: 2, bf16: 2, fp8: 1, fp4: 0.5 };
+      const weightBytes = DTYPE_BYTES[business.weight_dtype] || DTYPE_BYTES[model.weight_dtype] || 1;
+      const expertBytes = DTYPE_BYTES[business.weight_dtype] || DTYPE_BYTES[model.expert_dtype] || weightBytes;
+      const kvBytes = DTYPE_BYTES[business.kv_cache_dtype] || DTYPE_BYTES[model.kv_dtype] || 1;
 
       if (model.calculation_supported === false) {
         return {
@@ -1007,17 +1026,15 @@ IB卡: 8xHDR 200Gb/s
       const tp = Math.min(server.gpu_count, 8);
       const instances = Math.floor(server.gpu_count / tp);
 
-      // 权重显存
-      const weightTotalGb = model.total_params_b;
-      const densePerGpu = (denseParamsB(model) * 1e9) / tp;
-      const routedPerGpu = (routedParamsB(model) * 1e9) / tp;
+      // 权重显存：总参数 × 精度字节数 / TP 并行度
+      const weightTotalGb = model.total_params_b * weightBytes;
+      const densePerGpu = (denseParamsB(model) * 1e9 * weightBytes) / tp;
+      const routedPerGpu = (routedParamsB(model) * 1e9 * expertBytes) / tp;
 
       // KV cache
       // KV cache 单 token 占用：DeepSeek 系用 MLA（kv_lora_rank + rope 维度），
       // 稠密模型（LLaMA 等，无 MLA）走标准注意力公式 2 × 层数 × KV头数 × 头维度。
-      // 精度选项此前未参与计算（硬编码 1 字节），这里让它真正生效。
-      const KV_DTYPE_BYTES = { fp8: 1, fp16: 2, bf16: 2 };
-      const kvBytes = KV_DTYPE_BYTES[business.kv_cache_dtype] || 1;
+      // 使用函数开头的 kvBytes
       const kvPerToken = model.kv_lora_rank > 0
         ? model.num_layers * (model.kv_lora_rank + model.qk_rope_head_dim) * kvBytes
         : 2 * model.num_layers * model.num_kv_heads * model.head_dim * kvBytes;
