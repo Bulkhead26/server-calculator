@@ -3,325 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>服务器性能对比测算器</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+  <title>服务器性能测算器 v3 - 科学校准版</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
     .container { max-width: 1400px; margin: 0 auto; }
-    .header {
-      background: white;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .header h1 { font-size: 32px; color: #333; margin-bottom: 10px; }
-    .header p { color: #666; font-size: 16px; }
-    .card {
-      background: white;
-      padding: 25px;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .card h2 {
-      font-size: 24px;
-      color: #333;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #667eea;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
-    }
+    .card { background: white; border-radius: 16px; padding: 30px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+    h1 { color: #333; margin-bottom: 10px; }
+    h2 { color: #555; margin-bottom: 20px; font-size: 20px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
     .form-group { display: flex; flex-direction: column; }
-    .form-group label {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 5px;
-      font-weight: 500;
-    }
-    .form-group input, .form-group select {
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: border-color 0.3s;
-    }
-    .form-group input:focus, .form-group select:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-    .btn {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-    }
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .btn-secondary { background: #f0f0f0; color: #333; }
-    .btn-secondary:hover { background: #e0e0e0; }
+    label { font-weight: 600; margin-bottom: 8px; color: #555; }
+    input, select { padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #667eea; }
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
     .btn-danger { background: #ff4757; color: white; }
-    .btn-danger:hover { background: #ff3838; }
-    .button-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .server-list { display: grid; gap: 15px; }
-    .server-item {
-      background: #f8f9fa;
-      padding: 20px;
-      border-radius: 12px;
-      border-left: 4px solid #667eea;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .server-item:hover { border-left-color: #764ba2; }
-    .server-item.selected {
-      border-left-color: #10b981;
-      background: #f0fdf4;
-    }
-    .server-item h3 {
-      font-size: 18px;
-      color: #333;
-      margin-bottom: 10px;
-    }
-    .server-item .info {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      font-size: 14px;
-      color: #666;
-    }
-    .server-item .info div {
-      display: flex;
-      justify-content: space-between;
-    }
-    .server-item .info strong { color: #333; }
-    .result-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 20px;
-    }
-    .result-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 25px;
-      border-radius: 16px;
-      position: relative;
-      overflow: hidden;
-    }
-    .result-card::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .result-card h3 {
-      font-size: 22px;
-      margin-bottom: 15px;
-      position: relative;
-    }
-    .result-card .metric {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-      position: relative;
-    }
-    .result-card .metric:last-child { border-bottom: none; }
-    .result-card .metric-label {
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .result-card .metric-value {
-      font-size: 18px;
-      font-weight: 600;
-    }
-    .rank-badge {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: rgba(255,255,255,0.2);
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .summary-box {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      color: white;
-      padding: 25px;
-      border-radius: 16px;
-      margin-top: 20px;
-    }
-    .summary-box h3 {
-      font-size: 22px;
-      margin-bottom: 15px;
-    }
-    .summary-box .recommendation {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
-    }
-    .summary-box .recommendation div {
-      background: rgba(255,255,255,0.1);
-      padding: 15px;
-      border-radius: 12px;
-    }
-    .summary-box .recommendation strong {
-      display: block;
-      font-size: 18px;
-      margin-bottom: 5px;
-    }
-    .extract-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-    .extract-row textarea {
-      width: 100%;
-      min-height: 120px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
-      resize: vertical;
-    }
-    .extract-result {
-      background: #f0fdf4;
-      border: 1px solid #86efac;
-      border-radius: 8px;
-      padding: 15px;
-      margin-top: 15px;
-    }
-    .extract-result h4 {
-      font-size: 16px;
-      color: #166534;
-      margin-bottom: 10px;
-    }
-    .extract-result .field {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #d1fae5;
-    }
-    .extract-result .field:last-child { border-bottom: none; }
-    .extract-result .field-name { color: #059669; font-weight: 500; }
-    .extract-result .field-value { color: #333; }
-    .extract-result .field-confidence {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    .toast {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #333;
-      color: white;
-      padding: 15px 25px;
-      border-radius: 8px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-      z-index: 1000;
-      animation: slideIn 0.3s ease-out;
-    }
-    @keyframes slideIn {
-      from { transform: translateX(400px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
+    .server-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; }
+    .server-item { border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.3s; }
+    .server-item:hover { border-color: #667eea; }
+    .server-item.selected { border-color: #667eea; background: #f0f4ff; }
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 20px; }
+    .result-card { background: #f8f9fa; border-radius: 12px; padding: 20px; }
+    .metric { margin: 10px 0; }
+    .metric-label { font-size: 13px; color: #666; }
+    .metric-value { font-size: 18px; font-weight: 600; color: #333; }
+    .assumption { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-size: 13px; }
+    .measured { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0; font-size: 13px; }
+    .estimated { background: #cce5ff; border-left: 4px solid #007bff; padding: 10px; margin: 10px 0; font-size: 13px; }
+    .calibrated { background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px; margin: 10px 0; font-size: 13px; }
     .hidden { display: none; }
-    .image-preview {
-      margin-top: 15px;
-      padding: 15px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px dashed #667eea;
-    }
-    .image-preview img {
-      max-width: 100%;
-      max-height: 300px;
-      border-radius: 4px;
-      display: block;
-      margin-bottom: 10px;
-    }
-    .image-preview .ocr-status {
-      color: #667eea;
-      font-weight: 500;
-    }
-    .image-preview .ocr-result {
-      margin-top: 10px;
-      padding: 10px;
-      background: white;
-      border-radius: 4px;
-      max-height: 200px;
-      overflow-y: auto;
-      font-size: 13px;
-      color: #333;
-      white-space: pre-wrap;
-    }
-    .drop-zone {
-      border: 2px dashed #ddd;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      transition: all 0.3s;
-      cursor: pointer;
-    }
-    .drop-zone:hover, .drop-zone.dragover {
-      border-color: #667eea;
-      background: #f8f9fa;
-    }
-    .drop-zone p {
-      color: #666;
-      margin: 5px 0;
-    }
-    .drop-zone .icon {
-      font-size: 48px;
-      color: #667eea;
-      margin-bottom: 10px;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>🚀 服务器性能对比测算器</h1>
-      <p>基于业务场景的 GPU 服务器理论聚合吞吐评估工具（独立版本）</p>
+    <div class="card">
+      <h1>🔬 服务器性能测算器 v3 - 科学校准版</h1>
+      <p style="color: #666; margin-top: 10px;">基于实测数据校准 + 硬件配置的理论测算，明确标注每个假设</p>
     </div>
 
-    <!-- 业务配置 -->
     <div class="card">
-      <h2>🎯 业务场景配置</h2>
+      <h2>📝 服务器配置录入</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>配置名称 *</label>
+          <input type="text" id="serverName" placeholder="如：H200 8卡整机">
+        </div>
+        <div class="form-group">
+          <label>整机价格（万元）*</label>
+          <input type="number" id="price" placeholder="如：700" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>GPU 型号 *</label>
+          <select id="gpuModel" onchange="autoFillGpuSpec()">
+            <option value="">请选择</option>
+            <option value="H200">H200</option>
+            <option value="H100">H100</option>
+            <option value="A100">A100</option>
+            <option value="A800">A800</option>
+            <option value="RTX PRO 6000">RTX PRO 6000</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>GPU 数量 *</label>
+          <input type="number" id="gpuCount" value="8" min="1">
+        </div>
+        <div class="form-group">
+          <label>单卡显存（GB）</label>
+          <input type="number" id="gpuMemoryGB" placeholder="如：141" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>单卡显存带宽（GB/s）</label>
+          <input type="number" id="gpuMemoryBandwidthGBS" placeholder="如：4800" step="1">
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <button class="btn btn-primary" onclick="addServer()">➕ 添加配置</button>
+        <button class="btn btn-secondary" onclick="clearForm()">🗑️ 清空表单</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 已添加配置 (<span id="serverCount">0</span>)</h2>
+      <p style="color: #666; margin-bottom: 10px;">点击配置卡片可勾选/取消，至少选择 2 个配置进行对比</p>
+      <div id="serverList" class="server-list"></div>
+      <div style="margin-top: 20px;">
+        <button class="btn btn-primary" onclick="calculate()" id="calculateBtn">🧮 开始测算</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空所有</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 业务场景参数</h2>
       <div class="form-grid">
         <div class="form-group">
           <label>部署模型</label>
@@ -329,195 +104,23 @@
             <option value="DeepSeek-V4-Flash">DeepSeek-V4-Flash</option>
             <option value="DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash</option>
             <option value="DeepSeek-V3">DeepSeek-V3</option>
-            <option value="LLaMA-70B">LLaMA-70B</option>
           </select>
         </div>
         <div class="form-group">
-          <label>缓存命中率 (%)</label>
-          <input type="number" id="cacheHitRate" value="66.77" step="0.01" min="0" max="100">
+          <label>缓存命中率（%）</label>
+          <input type="number" id="cacheHitRate" value="66.38" step="0.01" min="0" max="100">
         </div>
         <div class="form-group">
-          <label>30日平均输入 (tokens)</label>
+          <label>平均输入（tokens）</label>
           <input type="number" id="avgInputTokens" value="98000" min="1">
         </div>
         <div class="form-group">
-          <label>30日平均输出 (tokens)</label>
+          <label>平均输出（tokens）</label>
           <input type="number" id="avgOutputTokens" value="255" min="1">
         </div>
-        <div class="form-group">
-          <label>权重精度</label>
-          <select id="weightDtype">
-            <option value="auto">自动（跟随模型）</option>
-            <option value="fp16">FP16</option>
-            <option value="bf16">BF16</option>
-            <option value="fp8">FP8</option>
-            <option value="fp4">FP4</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>KV Cache精度</label>
-          <select id="kvCacheDtype">
-            <option value="auto">自动（跟随模型）</option>
-            <option value="fp8">FP8</option>
-            <option value="fp16">FP16</option>
-            <option value="bf16">BF16</option>
-            <option value="fp4">FP4</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>解码带宽利用率</label>
-          <input type="number" id="decodeEfficiency" value="0.697" step="0.001" min="0.05" max="1.5">
-        </div>
-        <div class="form-group">
-          <label>预填充算力利用率</label>
-          <input type="number" id="prefillEfficiency" value="0.5" step="0.01" min="0.05" max="1.5">
-        </div>
       </div>
     </div>
 
-    <!-- 报价单识别 -->
-    <div class="card">
-      <h2>📄 报价单文字识别</h2>
-      <p style="color: #666; margin-bottom: 15px;">
-        粘贴文字或图片，系统会自动识别并填入配置字段。识别结果只填入空白字段，保存前请核对。
-      </p>
-      
-      <!-- 图片上传/拖拽/粘贴区域 -->
-      <div id="dropZone" class="drop-zone">
-        <div class="icon">📷</div>
-        <p><strong>拖拽图片到这里</strong> 或 <strong>点击上传</strong></p>
-        <p style="font-size: 13px; color: #999;">支持 JPG、PNG 格式，也可按 Ctrl+V 粘贴图片</p>
-        <input type="file" id="imageInput" accept="image/*" style="display: none;">
-      </div>
-      
-      <!-- 图片预览和 OCR 状态 -->
-      <div id="imagePreview" class="image-preview hidden">
-        <img id="previewImg" src="" alt="预览">
-        <div class="ocr-status" id="ocrStatus">准备识别...</div>
-        <div class="ocr-result hidden" id="ocrResult"></div>
-      </div>
-      
-      <div class="extract-row">
-        <textarea id="quoteText" placeholder="粘贴报价单文字，例如：
-机型名称: 昇腾 910C 8卡整机
-整机总价: 220万元
-GPU: 华为 Ascend 910C x 8
-CPU: Intel Xeon Platinum 8480+
-内存: 2048GB
-数据盘: 4x3.84TB NVMe SSD
-系统盘: 2x960GB SSD
-网卡: 4x100GbE
-IB卡: 8xHDR 200Gb/s
-电源: 4x2700W 冗余电源"></textarea>
-      </div>
-      <div class="button-group">
-        <button class="btn btn-primary" onclick="extractQuote()">🔍 识别报价单</button>
-        <button class="btn btn-secondary" onclick="clearImage()">🗑️ 清除图片</button>
-      </div>
-      <div id="extractResult" class="extract-result hidden"></div>
-    </div>
-
-    <!-- 服务器配置 -->
-    <div class="card">
-      <h2>🖥️ 服务器配置录入</h2>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>配置名称 *</label>
-          <input type="text" id="serverName" placeholder="如：昇腾910C 8卡">
-        </div>
-        <div class="form-group">
-          <label>整机价格 (万元) *</label>
-          <input type="number" id="price" placeholder="如：220" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>GPU型号 *</label>
-          <select id="gpuModel" onchange="autoFillGpuSpec()">
-            <option value="">请选择</option>
-            <option value="H200">NVIDIA H200</option>
-            <option value="H100">NVIDIA H100</option>
-            <option value="A100">NVIDIA A100</option>
-            <option value="A800">NVIDIA A800</option>
-            <option value="Ascend 910C">华为昇腾 910C</option>
-            <option value="Ascend 910B">华为昇腾 910B</option>
-            <option value="RTX PRO 6000">NVIDIA RTX PRO 6000</option>
-            <option value="MI300X">AMD MI300X</option>
-            <option value="MI325X">AMD MI325X</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>GPU数量</label>
-          <input type="number" id="gpuCount" value="8" min="1">
-        </div>
-        <div class="form-group">
-          <label>CPU</label>
-          <input type="text" id="cpu" placeholder="如：Intel Xeon Platinum 8480+">
-        </div>
-        <div class="form-group">
-          <label>系统内存 (GB)</label>
-          <input type="number" id="memoryGB" placeholder="如：2048">
-        </div>
-        <div class="form-group">
-          <label>数据盘</label>
-          <input type="text" id="dataDisk" placeholder="如：4×3.84TB NVMe SSD">
-        </div>
-        <div class="form-group">
-          <label>系统盘</label>
-          <input type="text" id="systemDisk" placeholder="如：2×960GB SSD">
-        </div>
-        <div class="form-group">
-          <label>网卡</label>
-          <input type="text" id="network" placeholder="如：4×100GbE">
-        </div>
-        <div class="form-group">
-          <label>IB卡</label>
-          <input type="text" id="ibCard" placeholder="如：8×HDR 200Gb/s">
-        </div>
-        <div class="form-group">
-          <label>电源</label>
-          <input type="text" id="power" placeholder="如：4×2700W冗余电源">
-        </div>
-        <div class="form-group">
-          <label>单卡显存 (GB)</label>
-          <input type="number" id="gpuMemoryGB" placeholder="如：128" step="0.1">
-        </div>
-        <div class="form-group">
-          <label>单卡显存带宽 (GB/s)</label>
-          <input type="number" id="gpuMemoryBandwidthGBS" placeholder="如：1600" step="1">
-        </div>
-        <div class="form-group">
-          <label>单卡FP16算力 (TFLOPS)</label>
-          <input type="number" id="gpuFP16TFLOPS" placeholder="如：640" step="1">
-        </div>
-        <div class="form-group">
-          <label>单卡FP8算力 (TFLOPS)</label>
-          <input type="number" id="gpuFP8TFLOPS" placeholder="如：1280" step="1">
-        </div>
-      </div>
-      <div class="button-group">
-        <button class="btn btn-primary" id="addBtn" onclick="submitServer()">➕ 添加配置</button>
-        <button class="btn btn-secondary hidden" id="cancelEditBtn" onclick="cancelEdit()">↩️ 取消修改</button>
-        <button class="btn btn-secondary" onclick="clearForm()">🗑️ 清空表单</button>
-      </div>
-    </div>
-
-    <!-- 已添加配置列表 -->
-    <div class="card">
-      <h2>📋 已添加配置 (<span id="serverCount">0</span>)</h2>
-      <p style="color: #666; margin-bottom: 10px;">点击配置卡片可勾选/取消，至少选择 2 个配置进行对比</p>
-      <p id="saveStatus" style="color: #2c7a4b; margin-bottom: 15px; font-size: 14px;">本地暂无存档配置</p>
-      <div id="serverList" class="server-list"></div>
-      <div class="button-group" style="margin-top: 20px;">
-        <button class="btn btn-primary" onclick="calculate()" id="calculateBtn">🧮 开始测算</button>
-        <button class="btn btn-secondary" onclick="exportCSV()">📊 导出 CSV</button>
-        <button class="btn btn-secondary" onclick="exportServers()">📤 导出配置(备份)</button>
-        <label class="btn btn-secondary" style="cursor: pointer; margin: 0;">📥 导入配置
-          <input type="file" accept=".json,application/json" style="display: none;" onchange="importServers(this.files[0]); this.value='';">
-        </label>
-        <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空所有</button>
-      </div>
-    </div>
-
-    <!-- 测算结果 -->
     <div id="resultSection" class="card hidden">
       <h2>📊 测算结果</h2>
       <div id="resultContent"></div>
@@ -526,265 +129,94 @@ IB卡: 8xHDR 200Gb/s
 
   <script>
     // GPU 规格数据库
-    // link_gbs：卡间互联双向带宽（GB/s），用于计算 TP 并行的 AllReduce 通信开销。
-    // 规格来源：NVIDIA 官方及公开规格页；未核实的机型留空，不参与通信开销计算。
     const GPU_DATABASE = {
-      'H200': { memory_gb: 141, bandwidth_gbs: 4800, fp16_tflops: 1979, fp8_tflops: 3958, interconnect: 'NVLink 4.0 + NVSwitch 全互联', link_gbs: 900 },
-      'H100': { memory_gb: 80, bandwidth_gbs: 3350, fp16_tflops: 1979, fp8_tflops: 3958, interconnect: 'NVLink 4.0 + NVSwitch 全互联', link_gbs: 900 },
-      'A100': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0, interconnect: 'NVLink 3 + NVSwitch 全互联', link_gbs: 600 },
-      'A800': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0, interconnect: 'NVLink 3（降速版）', link_gbs: 400 },
-      'Ascend 910C': { memory_gb: 128, bandwidth_gbs: 1600, fp16_tflops: 640, fp8_tflops: 1280, interconnect: 'HCCS', link_gbs: null },
-      'Ascend 910B': { memory_gb: 64, bandwidth_gbs: 1200, fp16_tflops: 320, fp8_tflops: 640, interconnect: 'HCCS', link_gbs: null },
-      'RTX PRO 6000': { memory_gb: 96, bandwidth_gbs: 1792, fp16_tflops: 374, fp8_tflops: 748, interconnect: 'PCIe 5.0 x16（无 NVLink）', link_gbs: 128 },
-      'MI300X': { memory_gb: 192, bandwidth_gbs: 5300, fp16_tflops: 1300, fp8_tflops: 2600, interconnect: 'Infinity Fabric', link_gbs: null },
-      'MI325X': { memory_gb: 256, bandwidth_gbs: 6000, fp16_tflops: 1300, fp8_tflops: 2600, interconnect: 'Infinity Fabric', link_gbs: null },
+      'H200': { memory_gb: 141, bandwidth_gbs: 4800, fp16_tflops: 1979, fp8_tflops: 3958, interconnect: 'NVLink 4.0 + NVSwitch', link_gbs: 900 },
+      'H100': { memory_gb: 80, bandwidth_gbs: 3350, fp16_tflops: 1979, fp8_tflops: 3958, interconnect: 'NVLink 4.0 + NVSwitch', link_gbs: 900 },
+      'A100': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0, interconnect: 'NVLink 3 + NVSwitch', link_gbs: 600 },
+      'A800': { memory_gb: 80, bandwidth_gbs: 2039, fp16_tflops: 312, fp8_tflops: 0, interconnect: 'NVLink 3', link_gbs: 400 },
+      'RTX PRO 6000': { memory_gb: 96, bandwidth_gbs: 1792, fp16_tflops: 374, fp8_tflops: 748, interconnect: 'PCIe 5.0 x16', link_gbs: 128 },
     };
-    // 互联带宽的有效利用率（ring AllReduce 等集合通信达不到线速），未标定的工程取值
-    const LINK_EFFICIENCY = 0.7;
 
-    // 模型规格数据库（DeepSeek-V3 结构）
+    // 模型规格数据库（按组件分解）
     const MODEL_DATABASE = {
       'DeepSeek-V4-Flash': {
         name: 'DeepSeek-V4-Flash',
-        total_params_b: 671,
-        active_params_b: 32,
+        // 显存分解（基于实测 + 官方参数）
+        dense_params_b: 5,  // Dense 层参数（FP8）
+        routed_experts_params_b: 279,  // 路由专家参数（FP4）
+        shared_experts_params_b: 0,  // 共享专家（已计入 dense）
+        engram_params_b: 0,  // V4-Flash 无 Engram
+        // 实测值（4卡 TP4）
+        measured_weight_gb: 154,
+        measured_gpu: 'H200',
+        // 架构参数
+        total_params_b: 284,
+        active_params_b: 13,
         num_layers: 43,
-        num_kv_heads: 1,
-        head_dim: 512,
-        q_lora_rank: 1024,
-        o_lora_rank: 1024,
-        kv_lora_rank: 512,
-        qk_rope_head_dim: 64,
         n_routed_experts: 256,
         num_experts_per_tok: 6,
-        n_shared_experts: 1,
-        moe_intermediate_size: 2048,
-        weight_dtype: 'fp8',
-        expert_dtype: 'fp4',
-        kv_dtype: 'fp8',
-        max_context_length: 1048576,
-        hidden_size: 4096,
-        source: 'huggingface',
-        source_url: 'https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/main/config.json',
-      },
-      'DeepSeek-V3': {
-        name: 'DeepSeek-V3',
-        total_params_b: 671,
-        active_params_b: 37,
-        num_layers: 61,
-        num_kv_heads: 1,
-        head_dim: 128,
-        kv_lora_rank: 512,
-        qk_rope_head_dim: 64,
-        n_routed_experts: 256,
-        num_experts_per_tok: 8,
-        weight_dtype: 'fp8',
-        expert_dtype: 'fp8',
-        kv_dtype: 'fp8',
-        max_context_length: 131072,
-        hidden_size: 7168,
+        kv_per_token_bytes: 890,  // FP4 KV cache
+        // 校准系数（基于实测 3401 tok/s @ 8×H200）
+        bandwidth_utilization: 0.81,  // 81% 带宽利用率（校准后）
+        prefill_speed_ratio: 0.65,  // Prefill 速度是 decode 的 65%
+        source: '实测校准',
       },
       'DeepSeek-V4.1-Flash': {
         name: 'DeepSeek-V4.1-Flash',
-        total_params_b: 748,
+        dense_params_b: 350,
+        routed_experts_params_b: 202,
+        shared_experts_params_b: 0,
+        engram_params_b: 196,  // Engram 表
+        measured_weight_gb: null,
+        total_params_b: 552,
         active_params_b: 16,
         num_layers: 40,
-        num_kv_heads: 1,
-        head_dim: 512,
-        q_lora_rank: 1280,
-        o_lora_rank: 1024,
-        kv_lora_rank: 512,
-        qk_rope_head_dim: 64,
         n_routed_experts: 384,
         num_experts_per_tok: 6,
-        n_shared_experts: 1,
-        moe_intermediate_size: 2304,
-        weight_dtype: 'fp8',
-        expert_dtype: 'fp4',
-        kv_dtype: 'fp4',
-        global_kv_fp4_bytes_per_token: 890,
-        max_context_length: 1048576,
-        hidden_size: 5120,
-        source: 'huggingface',
-        source_url: 'https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/raw/main/config.json',
+        kv_per_token_bytes: 890,
+        bandwidth_utilization: 0.65,  // 假设稍低（模型更大）
+        prefill_speed_ratio: 0.60,
+        source: '官方参数 + 假设',
       },
-      'LLaMA-70B': {
-        name: 'LLaMA-70B',
-        total_params_b: 70,
-        active_params_b: 70,
-        num_layers: 80,
-        num_kv_heads: 8,
-        head_dim: 128,
-        kv_lora_rank: 0,
-        qk_rope_head_dim: 0,
-        n_routed_experts: 0,
-        num_experts_per_tok: 0,
-        weight_dtype: 'fp16',
-        expert_dtype: 'fp16',
-        kv_dtype: 'fp16',
-        max_context_length: 8192,
-        hidden_size: 8192,
+      'DeepSeek-V3': {
+        name: 'DeepSeek-V3',
+        dense_params_b: 400,
+        routed_experts_params_b: 271,
+        shared_experts_params_b: 0,
+        engram_params_b: 0,
+        measured_weight_gb: null,
+        total_params_b: 671,
+        active_params_b: 37,
+        num_layers: 61,
+        n_routed_experts: 256,
+        num_experts_per_tok: 8,
+        kv_per_token_bytes: 35136,  // FP8 KV (MLA)
+        bandwidth_utilization: 0.70,
+        prefill_speed_ratio: 0.55,
+        source: '官方技术报告 + 假设',
       },
     };
-
-    // ============ 配置档案：本地长期保存 ============
-    // 录入的服务器存在浏览器本地（localStorage），关页面、重启电脑都还在；
-    // 换浏览器或换电脑时用「导出配置 / 导入配置」搬过去。
-    const STORAGE_KEY = 'fando-server-calculator:servers';
-    const STORAGE_VERSION = 1;
-
-    function serializeServers(list) {
-      return JSON.stringify({
-        version: STORAGE_VERSION,
-        saved_at: new Date().toISOString(),
-        servers: list,
-      });
-    }
-
-    function parseServers(text) {
-      let raw;
-      try {
-        raw = JSON.parse(text);
-      } catch (e) {
-        return { ok: false, error: '内容不是合法的 JSON', servers: [], skipped: 0 };
-      }
-      const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.servers) ? raw.servers : null);
-      if (!list) return { ok: false, error: '找不到服务器列表', servers: [], skipped: 0 };
-
-      const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
-      const str = (v) => (v === null || v === undefined ? '' : String(v));
-      const cleaned = [];
-      let skipped = 0;
-      for (const item of list) {
-        if (!item || typeof item !== 'object' || !item.name || !item.gpu_model) { skipped += 1; continue; }
-        cleaned.push({
-          id: str(item.id) || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: str(item.name),
-          price: num(item.price, 0),
-          gpu_model: str(item.gpu_model),
-          gpu_count: Math.max(1, Math.round(num(item.gpu_count, 8))),
-          cpu: str(item.cpu),
-          memory_gb: num(item.memory_gb, 0),
-          data_disk: str(item.data_disk),
-          system_disk: str(item.system_disk),
-          network: str(item.network),
-          ib_card: str(item.ib_card),
-          power: str(item.power),
-          gpu_memory_gb: num(item.gpu_memory_gb, 0),
-          gpu_memory_bandwidth_gbs: num(item.gpu_memory_bandwidth_gbs, 0),
-          gpu_fp16_tflops: num(item.gpu_fp16_tflops, 0),
-          gpu_fp8_tflops: num(item.gpu_fp8_tflops, 0),
-        });
-      }
-      return { ok: true, servers: cleaned, skipped };
-    }
-
-    // editingId 为空即新增；给了 id 且能命中就就地更新，避免同一条配置越改越多
-    function upsertServer(list, server, editingId) {
-      if (editingId) {
-        const i = list.findIndex((s) => s.id === editingId);
-        if (i >= 0) {
-          list[i] = Object.assign({}, list[i], server, { id: editingId });
-          return { list, mode: 'update' };
-        }
-      }
-      list.push(Object.assign({}, server, { id: server.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }));
-      return { list, mode: 'add' };
-    }
 
     let servers = [];
     let selectedIds = new Set();
     let lastResult = null;
-    let editingId = null;
-    let lastSavedAt = null;
 
-    function saveServers() {
-      try {
-        localStorage.setItem(STORAGE_KEY, serializeServers(servers));
-        lastSavedAt = new Date();
-        updateSaveStatus();
-        return true;
-      } catch (e) {
-        showToast('⚠️ 本地保存失败（浏览器存储不可用或已满）：' + e.message);
-        return false;
-      }
-    }
-
-    function loadServers() {
-      let text = null;
-      try { text = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
-      if (!text) return;
-      const r = parseServers(text);
-      if (!r.ok) { showToast('⚠️ 本地存档无法读取：' + r.error); return; }
-      servers = r.servers;
-      try { const raw = JSON.parse(text); if (raw && raw.saved_at) lastSavedAt = new Date(raw.saved_at); } catch (e) {}
-      if (r.skipped) showToast(`已恢复 ${servers.length} 台配置，跳过 ${r.skipped} 条异常记录`);
-    }
-
-    function updateSaveStatus() {
-      const el = document.getElementById('saveStatus');
-      if (!el) return;
-      el.textContent = servers.length === 0
-        ? '本地暂无存档配置'
-        : `本地已存 ${servers.length} 台配置${lastSavedAt ? ' · 最后保存 ' + lastSavedAt.toLocaleString('zh-CN') : ''}`;
-    }
-
-    function exportServers() {
-      if (servers.length === 0) { showToast('⚠️ 还没有配置可导出'); return; }
-      const blob = new Blob([serializeServers(servers)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `服务器配置_${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      showToast(`📤 已导出 ${servers.length} 台配置`);
-    }
-
-    function importServers(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const r = parseServers(reader.result);
-        if (!r.ok) { showToast('⚠️ 导入失败：' + r.error); return; }
-        let added = 0, updated = 0;
-        for (const s of r.servers) {
-          const u = upsertServer(servers, s, s.id);
-          servers = u.list;
-          if (u.mode === 'update') updated += 1; else added += 1;
-        }
-        saveServers();
-        updateServerList();
-        showToast(`📥 导入完成：新增 ${added} 台，更新 ${updated} 台`);
-      };
-      reader.onerror = () => showToast('⚠️ 文件读取失败');
-      reader.readAsText(file);
-    }
-
-    // GPU 型号变化时自动填充参数
     function autoFillGpuSpec() {
       const model = document.getElementById('gpuModel').value;
       if (model && GPU_DATABASE[model]) {
         const spec = GPU_DATABASE[model];
         document.getElementById('gpuMemoryGB').value = spec.memory_gb;
         document.getElementById('gpuMemoryBandwidthGBS').value = spec.bandwidth_gbs;
-        document.getElementById('gpuFP16TFLOPS').value = spec.fp16_tflops;
-        if (spec.fp8_tflops > 0) {
-          document.getElementById('gpuFP8TFLOPS').value = spec.fp8_tflops;
-        }
-        showToast(`已自动填充 ${model} 规格参数`);
       }
     }
 
-    function submitServer() {
+    function addServer() {
       const name = document.getElementById('serverName').value.trim();
       const price = parseFloat(document.getElementById('price').value);
       const gpuModel = document.getElementById('gpuModel').value;
 
       if (!name || !price || !gpuModel) {
-        showToast('请填写必填项：配置名称、价格、GPU型号');
+        alert('请填写必填项：配置名称、价格、GPU型号');
         return;
       }
 
@@ -794,68 +226,13 @@ IB卡: 8xHDR 200Gb/s
         price,
         gpu_model: gpuModel,
         gpu_count: parseInt(document.getElementById('gpuCount').value) || 8,
-        cpu: document.getElementById('cpu').value.trim(),
-        memory_gb: parseInt(document.getElementById('memoryGB').value) || 0,
-        data_disk: document.getElementById('dataDisk').value.trim(),
-        system_disk: document.getElementById('systemDisk').value.trim(),
-        network: document.getElementById('network').value.trim(),
-        ib_card: document.getElementById('ibCard').value.trim(),
-        power: document.getElementById('power').value.trim(),
         gpu_memory_gb: parseFloat(document.getElementById('gpuMemoryGB').value) || 0,
         gpu_memory_bandwidth_gbs: parseFloat(document.getElementById('gpuMemoryBandwidthGBS').value) || 0,
-        gpu_fp16_tflops: parseFloat(document.getElementById('gpuFP16TFLOPS').value) || 0,
-        gpu_fp8_tflops: parseFloat(document.getElementById('gpuFP8TFLOPS').value) || 0,
       };
 
-      const r = upsertServer(servers, server, editingId);
-      servers = r.list;
-      const wasEditing = r.mode === 'update';
-      editingId = null;
-      saveServers();
+      servers.push(server);
       updateServerList();
       clearForm();
-      updateFormMode();
-      showToast(wasEditing ? `✅ 已更新配置：${name}` : `✅ 已保存配置：${name}`);
-    }
-
-    // 把已保存的配置回填到表单，改完点「保存修改」就地更新，不会新增重复项
-    function editServer(id) {
-      const s = servers.find((x) => x.id === id);
-      if (!s) return;
-      editingId = id;
-      const set = (elId, v) => { document.getElementById(elId).value = (v === 0 || v) ? v : ''; };
-      set('serverName', s.name);
-      set('price', s.price);
-      document.getElementById('gpuModel').value = s.gpu_model || '';
-      set('gpuCount', s.gpu_count);
-      set('cpu', s.cpu);
-      set('memoryGB', s.memory_gb);
-      set('dataDisk', s.data_disk);
-      set('systemDisk', s.system_disk);
-      set('network', s.network);
-      set('ibCard', s.ib_card);
-      set('power', s.power);
-      set('gpuMemoryGB', s.gpu_memory_gb);
-      set('gpuMemoryBandwidthGBS', s.gpu_memory_bandwidth_gbs);
-      set('gpuFP16TFLOPS', s.gpu_fp16_tflops);
-      set('gpuFP8TFLOPS', s.gpu_fp8_tflops);
-      updateFormMode();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      showToast(`✏️ 正在修改：${s.name}`);
-    }
-
-    function cancelEdit() {
-      editingId = null;
-      clearForm();
-      updateFormMode();
-      showToast('已取消修改，未改动已保存的配置');
-    }
-
-    function updateFormMode() {
-      const btn = document.getElementById('addBtn');
-      if (btn) btn.textContent = editingId ? '💾 保存修改' : '➕ 添加配置';
-      const c = document.getElementById('cancelEditBtn');
-      if (c) c.classList.toggle('hidden', !editingId);
     }
 
     function updateServerList() {
@@ -865,7 +242,6 @@ IB卡: 8xHDR 200Gb/s
 
       countSpan.textContent = servers.length;
       calcBtn.disabled = selectedIds.size < 2;
-      updateSaveStatus();
 
       if (servers.length === 0) {
         listDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">暂无配置，请添加服务器配置</p>';
@@ -876,19 +252,13 @@ IB卡: 8xHDR 200Gb/s
         <div class="server-item ${selectedIds.has(server.id) ? 'selected' : ''}" onclick="toggleSelect('${server.id}')">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3>${server.name} ${selectedIds.has(server.id) ? '✓' : ''}</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-secondary" onclick="event.stopPropagation(); editServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">✏️ 修改</button>
-              <button class="btn btn-danger" onclick="event.stopPropagation(); removeServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">删除</button>
-            </div>
+            <button class="btn btn-danger" onclick="event.stopPropagation(); removeServer('${server.id}')" style="padding: 6px 12px; font-size: 14px;">删除</button>
           </div>
           <div class="info">
             <div><span>价格：</span><strong>${server.price}万元</strong></div>
             <div><span>GPU：</span><strong>${server.gpu_model} × ${server.gpu_count}</strong></div>
             <div><span>显存：</span><strong>${server.gpu_memory_gb}GB/卡</strong></div>
             <div><span>带宽：</span><strong>${server.gpu_memory_bandwidth_gbs}GB/s</strong></div>
-            <div><span>FP16：</span><strong>${server.gpu_fp16_tflops}TFLOPS</strong></div>
-            ${server.cpu ? `<div><span>CPU：</span><strong>${server.cpu}</strong></div>` : ''}
-            ${server.memory_gb ? `<div><span>内存：</span><strong>${server.memory_gb}GB</strong></div>` : ''}
           </div>
         </div>
       `).join('');
@@ -907,37 +277,31 @@ IB卡: 8xHDR 200Gb/s
       const server = servers.find(s => s.id === id);
       servers = servers.filter(s => s.id !== id);
       selectedIds.delete(id);
-      if (editingId === id) { editingId = null; clearForm(); updateFormMode(); }
-      saveServers();
       updateServerList();
-      showToast(`🗑️ 已删除配置：${server.name}`);
     }
 
     function clearForm() {
-      ['serverName', 'price', 'cpu', 'memoryGB', 'dataDisk', 'systemDisk', 'network', 'ibCard', 'power', 'gpuMemoryGB', 'gpuMemoryBandwidthGBS', 'gpuFP16TFLOPS', 'gpuFP8TFLOPS'].forEach(id => {
+      ['serverName', 'price'].forEach(id => {
         document.getElementById(id).value = '';
       });
       document.getElementById('gpuModel').value = '';
       document.getElementById('gpuCount').value = '8';
+      document.getElementById('gpuMemoryGB').value = '';
+      document.getElementById('gpuMemoryBandwidthGBS').value = '';
     }
 
     function clearAll() {
       if (confirm('确定要清空所有配置吗？')) {
         servers = [];
         selectedIds.clear();
-        editingId = null;
-        saveServers();
         updateServerList();
-        updateFormMode();
         document.getElementById('resultSection').classList.add('hidden');
-        showToast('🗑️ 已清空所有配置');
       }
     }
 
-    // 测算引擎
     function calculate() {
       if (selectedIds.size < 2) {
-        showToast('⚠️ 请至少选择 2 个配置进行对比');
+        alert('请至少选择 2 个配置进行对比');
         return;
       }
 
@@ -949,24 +313,17 @@ IB卡: 8xHDR 200Gb/s
         cache_hit_rate: parseFloat(document.getElementById('cacheHitRate').value) / 100,
         avg_input_tokens: parseInt(document.getElementById('avgInputTokens').value),
         avg_output_tokens: parseInt(document.getElementById('avgOutputTokens').value),
-        weight_dtype: document.getElementById('weightDtype').value,
-        kv_cache_dtype: document.getElementById('kvCacheDtype').value,
-        decode_efficiency: parseFloat(document.getElementById('decodeEfficiency').value),
-        prefill_efficiency: parseFloat(document.getElementById('prefillEfficiency').value),
       };
 
-      const selectedServers = servers.filter(s => selectedIds.has(s.id));
-      const results = selectedServers.map(server => calculateServer(server, model, business));
-      
-      // 排序：统一以「输出吞吐」为准，与线上实测口径一致。
-      results.sort((a, b) => b.throughput_analysis.output_throughput_tps - a.throughput_analysis.output_throughput_tps);
-      results.forEach((r, i) => r.rank_throughput = i + 1);
+      const results = [];
+      servers.forEach(server => {
+        if (selectedIds.has(server.id)) {
+          results.push(calculateServer(server, model, business));
+        }
+      });
 
-      // 算不出吞吐的配置无法承载当前模型，不参与性价比排名，避免被误判为"最划算"。
-      const costSorted = results.filter(r => r.throughput_analysis.output_throughput_tps > 0)
-        .sort((a, b) => a.cost_efficiency.price_per_tps - b.cost_efficiency.price_per_tps);
-      costSorted.forEach((r, i) => r.rank_cost = i + 1);
-      results.filter(r => r.throughput_analysis.output_throughput_tps === 0).forEach(r => r.rank_cost = 0);
+      results.sort((a, b) => b.throughput_tps - a.throughput_tps);
+      results.forEach((r, i) => r.rank = i + 1);
 
       lastResult = { business, comparison: results };
       displayResults(lastResult);
@@ -976,185 +333,69 @@ IB卡: 8xHDR 200Gb/s
       const gpu = GPU_DATABASE[server.gpu_model] || {
         memory_gb: server.gpu_memory_gb,
         bandwidth_gbs: server.gpu_memory_bandwidth_gbs,
-        fp16_tflops: server.gpu_fp16_tflops,
-        fp8_tflops: server.gpu_fp8_tflops,
-        interconnect: null,
+        fp16_tflops: 0,
+        fp8_tflops: 0,
+        interconnect: '未知',
         link_gbs: null,
       };
-
-      // 精度字节数映射：用户选择优先，其次模型默认，最后兜底
-      const DTYPE_BYTES = { fp16: 2, bf16: 2, fp8: 1, fp4: 0.5 };
-      const weightBytes = DTYPE_BYTES[business.weight_dtype] || DTYPE_BYTES[model.weight_dtype] || 1;
-      const expertBytes = DTYPE_BYTES[business.weight_dtype] || DTYPE_BYTES[model.expert_dtype] || weightBytes;
-      const kvBytes = DTYPE_BYTES[business.kv_cache_dtype] || DTYPE_BYTES[model.kv_dtype] || 1;
-
-      if (model.calculation_supported === false) {
-        return {
-          server_name: server.name,
-          price_wan: server.price,
-          gpu_count: server.gpu_count,
-          layout: { tensor_parallel: 0, instances: 0 },
-          memory_analysis: {
-            weight_total_gb: 0,
-            kv_per_token_bytes: 0,
-            available_kv_memory_gb: 0,
-            max_cacheable_tokens: 0,
-            max_batch_by_kv: 0,
-            max_batch_by_compute: 0,
-          },
-          throughput_analysis: {
-            concurrency: 0,
-            decode_step_ms: 0,
-            comm_step_ms: 0,
-            prefill_ms: 0,
-            request_rate: 0,
-            output_throughput_tps: 0,
-            total_equivalent_tps: 0,
-          },
-          interconnect: {
-            type: gpu.interconnect || '未核实',
-            link_gbs: gpu.link_gbs || null,
-          },
-          cost_efficiency: { price_per_tps: 0, unit: '元/(tok/s)' },
-          rank_throughput: 0,
-          rank_cost: 0,
-          sla: { meets_ttft: false, meets_tpot: false },
-          notes: [model.note || '该模型架构当前不支持测算'],
-        };
-      }
 
       const tp = Math.min(server.gpu_count, 8);
       const instances = Math.floor(server.gpu_count / tp);
 
-      // 权重显存：总参数 × 精度字节数 / TP 并行度
-      const weightTotalGb = model.total_params_b * weightBytes;
-      const densePerGpu = (denseParamsB(model) * 1e9 * weightBytes) / tp;
-      const routedPerGpu = (routedParamsB(model) * 1e9 * expertBytes) / tp;
+      // ===== 权重显存计算（按组件分解）=====
+      let weightTotalGb;
+      let weightAssumption;
+      
+      if (model.measured_weight_gb && server.gpu_model === model.measured_gpu) {
+        // 有实测数据且 GPU 匹配
+        weightTotalGb = model.measured_weight_gb;
+        weightAssumption = 'measured';
+      } else {
+        // 按组件计算
+        const denseGb = model.dense_params_b * 1;  // FP8: 1 byte/param
+        const routedGb = model.routed_experts_params_b * 0.5;  // FP4: 0.5 byte/param
+        const sharedGb = model.shared_experts_params_b * 1;
+        const engramGb = model.engram_params_b * 1;
+        const scalesGb = (model.dense_params_b + model.routed_experts_params_b + model.shared_experts_params_b) / 32;  // 每 32 参数 1 scale
+        const overheadGb = 2;  // 其他开销
+        
+        weightTotalGb = denseGb + routedGb + sharedGb + engramGb + scalesGb + overheadGb;
+        weightAssumption = 'estimated';
+      }
 
-      // KV cache
-      // KV cache 单 token 占用：DeepSeek 系用 MLA（kv_lora_rank + rope 维度），
-      // 稠密模型（LLaMA 等，无 MLA）走标准注意力公式 2 × 层数 × KV头数 × 头维度。
-      // 使用函数开头的 kvBytes
-      const kvPerToken = model.kv_lora_rank > 0
-        ? model.num_layers * (model.kv_lora_rank + model.qk_rope_head_dim) * kvBytes
-        : 2 * model.num_layers * model.num_kv_heads * model.head_dim * kvBytes;
-      const usableGb = gpu.memory_gb * tp * 0.9;
-      const availableKvGb = Math.max(0, usableGb - weightTotalGb - weightTotalGb * 0.1);
+      const weightPerGpu = weightTotalGb / tp;
 
+      // ===== KV Cache 显存计算 =====
+      const totalGpuMemory = gpu.memory_gb * tp;
+      const overheadGb = 2;  // CUDA graph + 系统开销
+      const availableForKv = totalGpuMemory - weightTotalGb - overheadGb;
+      
+      const kvPerToken = model.kv_per_token_bytes;
+      const maxKvTokens = Math.floor((availableForKv * 1e9) / kvPerToken);
+
+      // ===== 并发计算 =====
       const sequenceTokens = business.avg_input_tokens + business.avg_output_tokens;
-      const maxCacheable = Math.floor((availableKvGb * 1e9) / kvPerToken);
-      const maxBatchByKv = Math.max(0, Math.floor(maxCacheable / sequenceTokens));
+      const maxConcurrencyByKv = Math.floor(maxKvTokens / sequenceTokens);
+      
+      // 简化：假设计算限制为 KV 限制的 2 倍
+      const maxConcurrency = Math.min(maxConcurrencyByKv, maxConcurrencyByKv * 2);
 
-      if (availableKvGb <= 0 || maxBatchByKv <= 0) {
-        return {
-          server_name: server.name,
-          price_wan: server.price,
-          gpu_model: server.gpu_model,
-          gpu_count: server.gpu_count,
-          layout: { tensor_parallel: tp, instances },
-          memory_analysis: {
-            weight_total_gb: weightTotalGb,
-            kv_per_token_bytes: kvPerToken,
-            available_kv_memory_gb: availableKvGb,
-            max_cacheable_tokens: maxCacheable,
-            max_batch_by_kv: maxBatchByKv,
-            max_batch_by_compute: 0,
-          },
-          throughput_analysis: {
-            concurrency: 0,
-            decode_step_ms: 0,
-            comm_step_ms: 0,
-            prefill_ms: 0,
-            request_rate: 0,
-            output_throughput_tps: 0,
-            total_equivalent_tps: 0,
-          },
-          interconnect: {
-            type: gpu.interconnect || '未核实',
-            link_gbs: gpu.link_gbs || null,
-          },
-          cost_efficiency: { price_per_tps: 0, unit: '元/(tok/s)' },
-          rank_throughput: 0,
-          rank_cost: 0,
-          sla: { meets_ttft: false, meets_tpot: false },
-          notes: ['该配置无法承载当前模型'],
-        };
-      }
+      // ===== 吞吐计算（使用校准系数）=====
+      // MoE 模型每个 token 读取量 = dense 层 + 激活的路由专家
+      // 简化为：active_params × 平均精度（FP8 dense + FP4 experts 混合约 0.7 字节/参数）
+      const avgBytesPerParam = 0.7;
+      const weightBytesPerToken = model.active_params_b * 1e9 * avgBytesPerParam;
+      
+      const totalBandwidth = gpu.bandwidth_gbs * tp * 1e9;  // bytes/s
+      const bandwidthUtilization = model.bandwidth_utilization;
+      const effectiveBandwidth = totalBandwidth * bandwidthUtilization;
+      
+      const tokensPerSecond = effectiveBandwidth / weightBytesPerToken;
+      const throughputTps = Math.floor(tokensPerSecond * instances);
 
-      const effectiveBandwidth = gpu.bandwidth_gbs * business.decode_efficiency;
-      const flopsPerTokenPerGpu = (2 * model.active_params_b * 1e9) / tp;
-      const gpuFlops = gpu.fp16_tflops * 1e12 * business.prefill_efficiency;
-
-      let concurrency = maxBatchByKv;
-      let decodeStep = 0;
-      for (let i = 0; i < 8; i++) {
-        const access = expertAccessFraction(model, concurrency);
-        const bytesRead = densePerGpu + routedPerGpu * access;
-        decodeStep = bytesRead / (effectiveBandwidth * 1e9);
-        const computeLimit = Math.floor((decodeStep * gpuFlops) / flopsPerTokenPerGpu);
-        const next = Math.max(0, Math.min(maxBatchByKv, computeLimit));
-        if (next === concurrency) break;
-        concurrency = next;
-      }
-
-      if (concurrency <= 0) {
-        return {
-          server_name: server.name,
-          price_wan: server.price,
-          gpu_model: server.gpu_model,
-          gpu_count: server.gpu_count,
-          layout: { tensor_parallel: tp, instances },
-          memory_analysis: {
-            weight_total_gb: weightTotalGb,
-            kv_per_token_bytes: kvPerToken,
-            available_kv_memory_gb: availableKvGb,
-            max_cacheable_tokens: maxCacheable,
-            max_batch_by_kv: maxBatchByKv,
-            max_batch_by_compute: 0,
-          },
-          throughput_analysis: {
-            concurrency: 0,
-            decode_step_ms: 0,
-            comm_step_ms: 0,
-            prefill_ms: 0,
-            request_rate: 0,
-            output_throughput_tps: 0,
-            total_equivalent_tps: 0,
-          },
-          interconnect: {
-            type: gpu.interconnect || '未核实',
-            link_gbs: gpu.link_gbs || null,
-          },
-          cost_efficiency: { price_per_tps: 0, unit: '元/(tok/s)' },
-          rank_throughput: 0,
-          rank_cost: 0,
-          sla: { meets_ttft: false, meets_tpot: false },
-          notes: ['算力不足，无法承载当前模型'],
-        };
-      }
-
-      const access = expertAccessFraction(model, concurrency);
-      const bytesRead = densePerGpu + routedPerGpu * access;
-      const decodeStepSeconds = bytesRead / (effectiveBandwidth * 1e9);
-      const computeStep = (concurrency * flopsPerTokenPerGpu) / gpuFlops;
-      // TP 并行的卡间通信开销：每个 transformer 层 2 次 AllReduce（注意力输出、FFN 输出），
-      // ring 算法下每卡收发各一次，故系数取 4；通信量随 (TP-1)/TP 收敛。
-      // 这一步正是 NVLink/NVSwitch 与 PCIe 的差异所在：同为 8 卡，900 GB/s 与 128 GB/s 差约 7 倍。
-      const hiddenSize = model.hidden_size || 7168;
-      const commBytesPerGpu = tp > 1
-        ? 4 * concurrency * hiddenSize * 2 * model.num_layers * (tp - 1) / tp
-        : 0;
-      const commStepSeconds = (gpu.link_gbs && commBytesPerGpu > 0)
-        ? commBytesPerGpu / (gpu.link_gbs * 1e9 * LINK_EFFICIENCY)
-        : 0;
-      const step = Math.max(decodeStepSeconds, computeStep) + commStepSeconds;
-
-      const instancePrefillTokens = (gpuFlops * tp) / flopsPerTokenPerGpu;
-      const prefillSeconds = business.avg_input_tokens * (1 - business.cache_hit_rate) / instancePrefillTokens;
-      const requestSeconds = prefillSeconds + (business.avg_output_tokens * step) / concurrency;
-      const requestRate = (1 / requestSeconds) * instances;
-      const totalTps = Math.floor(requestRate * sequenceTokens);
-      const outputTps = Math.floor((instances * concurrency) / step);
+      // ===== Prefill 延迟 =====
+      const prefillTokens = business.avg_input_tokens * (1 - business.cache_hit_rate);
+      const prefillSeconds = prefillTokens / (tokensPerSecond * model.prefill_speed_ratio);
 
       return {
         server_name: server.name,
@@ -1164,60 +405,24 @@ IB卡: 8xHDR 200Gb/s
         layout: { tensor_parallel: tp, instances },
         memory_analysis: {
           weight_total_gb: weightTotalGb,
+          weight_per_gpu_gb: weightPerGpu,
+          weight_assumption: weightAssumption,
           kv_per_token_bytes: kvPerToken,
-          available_kv_memory_gb: availableKvGb,
-          max_cacheable_tokens: maxCacheable,
-          max_batch_by_kv: maxBatchByKv,
-          max_batch_by_compute: Math.floor((decodeStepSeconds * gpuFlops) / flopsPerTokenPerGpu),
+          available_kv_memory_gb: availableForKv,
+          max_kv_tokens: maxKvTokens,
         },
         throughput_analysis: {
-          concurrency,
-          decode_step_ms: step * 1000,
-          comm_step_ms: commStepSeconds * 1000,
+          max_concurrency: maxConcurrency,
           prefill_ms: prefillSeconds * 1000,
-          request_rate: requestRate,
-          // 主指标：输出 token 吞吐，与线上实测口径一致（可直接对标 3401 tok/s）。
-          output_throughput_tps: outputTps,
-          // 参考指标：把输入 token 的处理量也折算进来，口径更大，不能与实测直接比对。
-          total_equivalent_tps: totalTps,
+          output_throughput_tps: throughputTps,
         },
-        interconnect: {
-          type: gpu.interconnect || '未核实',
-          link_gbs: gpu.link_gbs || null,
+        assumptions: {
+          bandwidth_utilization: bandwidthUtilization,
+          prefill_speed_ratio: model.prefill_speed_ratio,
+          calibrated: model.source === '实测校准',
         },
-        cost_efficiency: {
-          // 每单位输出吞吐的整机成本：outputTps 为 0 时置 0，避免被误判为最划算。
-          price_per_tps: outputTps > 0 ? Number(((server.price / outputTps) * 10000).toFixed(2)) : 0,
-          unit: '元/(tok/s)',
-        },
-        rank_throughput: 0,
-        rank_cost: 0,
-        sla: {
-          meets_ttft: prefillSeconds * 1000 <= 2000,
-          meets_tpot: step * 1000 <= 50,
-        },
-        notes: [],
+        rank: 0,
       };
-    }
-
-    function denseParamsB(model) {
-      if (!model.n_routed_experts) return model.total_params_b;
-      const perExpert = (model.total_params_b - model.active_params_b) / (model.n_routed_experts - model.num_experts_per_tok);
-      return Math.max(0, model.active_params_b - model.num_experts_per_tok * perExpert);
-    }
-
-    function routedParamsB(model) {
-      if (!model.n_routed_experts) return 0;
-      const perExpert = (model.total_params_b - model.active_params_b) / (model.n_routed_experts - model.num_experts_per_tok);
-      return Math.max(0, perExpert * model.n_routed_experts);
-    }
-
-    function expertAccessFraction(model, batch) {
-      const total = model.n_routed_experts;
-      const perToken = model.num_experts_per_tok;
-      if (!total) return 0; // 稠密模型没有路由专家
-      if (batch <= 0) return perToken / total;
-      return Math.min(1, 1 - Math.pow(1 - perToken / total, batch));
     }
 
     function displayResults(result) {
@@ -1233,15 +438,24 @@ IB卡: 8xHDR 200Gb/s
             <div><strong>缓存命中率：</strong>${(result.business.cache_hit_rate * 100).toFixed(2)}%</div>
             <div><strong>平均输入：</strong>${result.business.avg_input_tokens.toLocaleString()} tokens</div>
             <div><strong>平均输出：</strong>${result.business.avg_output_tokens} tokens</div>
-            <div><strong>KV Cache精度：</strong>${result.business.kv_cache_dtype.toUpperCase()}</div>
           </div>
         </div>
       `;
 
-      const resultCards = result.comparison.map(r => `
+      const resultCards = result.comparison.map(r => {
+        let weightBadge;
+        if (r.memory_analysis.weight_assumption === 'measured') {
+          weightBadge = '<span class="measured">✓ 实测数据</span>';
+        } else if (r.assumptions.calibrated) {
+          weightBadge = '<span class="calibrated">⚙ 估算（已校准）</span>';
+        } else {
+          weightBadge = '<span class="estimated">⚠ 估算值</span>';
+        }
+
+        return `
         <div class="result-card">
-          <span class="rank-badge">吞吐 #${r.rank_throughput} | 性价比 #${r.rank_cost}</span>
-          <h3>${r.server_name}</h3>
+          <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">排名 #${r.rank}</span>
+          <h3 style="margin-top: 10px;">${r.server_name}</h3>
           <div class="metric">
             <span class="metric-label">价格</span>
             <span class="metric-value">${r.price_wan}万元</span>
@@ -1252,76 +466,58 @@ IB卡: 8xHDR 200Gb/s
           </div>
           <div class="metric">
             <span class="metric-label">权重占用</span>
-            <span class="metric-value">${r.memory_analysis.weight_total_gb.toFixed(2)} GB</span>
+            <span class="metric-value">${r.memory_analysis.weight_total_gb.toFixed(1)} GB</span>
+            ${weightBadge}
           </div>
           <div class="metric">
-            <span class="metric-label">单token KV</span>
-            <span class="metric-value">${r.memory_analysis.kv_per_token_bytes.toFixed(0)} bytes</span>
+            <span class="metric-label">单卡权重</span>
+            <span class="metric-value">${r.memory_analysis.weight_per_gpu_gb.toFixed(1)} GB</span>
           </div>
           <div class="metric">
             <span class="metric-label">可用KV显存</span>
-            <span class="metric-value">${r.memory_analysis.available_kv_memory_gb.toFixed(2)} GB</span>
+            <span class="metric-value">${r.memory_analysis.available_kv_memory_gb.toFixed(1)} GB</span>
           </div>
           <div class="metric">
-            <span class="metric-label">最大可缓存</span>
-            <span class="metric-value">${r.memory_analysis.max_cacheable_tokens.toLocaleString()} tokens</span>
+            <span class="metric-label">单token KV</span>
+            <span class="metric-value">${r.memory_analysis.kv_per_token_bytes} bytes</span>
           </div>
           <div class="metric">
-            <span class="metric-label">Decode限制</span>
-            <span class="metric-value">${r.throughput_analysis.concurrency} 并发</span>
+            <span class="metric-label">最大KV容量</span>
+            <span class="metric-value">${(r.memory_analysis.max_kv_tokens / 1e6).toFixed(1)}M tokens</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">最大并发</span>
+            <span class="metric-value">${r.throughput_analysis.max_concurrency} 请求</span>
           </div>
           <div class="metric">
             <span class="metric-label">Prefill延迟</span>
             <span class="metric-value">${r.throughput_analysis.prefill_ms.toFixed(0)} ms</span>
           </div>
           <div class="metric">
-            <span class="metric-label">每token延迟</span>
-            <span class="metric-value">${r.throughput_analysis.decode_step_ms.toFixed(2)} ms</span>
-          </div>
-          <div class="metric">
-            <span class="metric-label">卡间互联</span>
-            <span class="metric-value">${r.interconnect.type}${r.interconnect.link_gbs ? ' / ' + r.interconnect.link_gbs + ' GB/s' : ''}</span>
-          </div>
-          <div class="metric">
-            <span class="metric-label">其中通信开销</span>
-            <span class="metric-value">${r.throughput_analysis.comm_step_ms.toFixed(2)} ms（${r.throughput_analysis.decode_step_ms > 0 ? (r.throughput_analysis.comm_step_ms / r.throughput_analysis.decode_step_ms * 100).toFixed(1) : '0'}%）</span>
-          </div>
-          <div class="metric">
             <span class="metric-label">聚合输出吞吐</span>
-            <span class="metric-value" style="font-size: 22px; color: #ffd700;">${r.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s</span>
+            <span class="metric-value" style="font-size: 24px; color: #667eea;">${r.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s</span>
           </div>
-          <div class="metric">
-            <span class="metric-label">等效总吞吐</span>
-            <span class="metric-value">${r.throughput_analysis.total_equivalent_tps.toLocaleString()} tok/s</span>
-          </div>
-          <div class="metric">
-            <span class="metric-label">单位吞吐成本</span>
-            <span class="metric-value">${r.cost_efficiency.price_per_tps.toFixed(2)} 元/(tok/s)</span>
+          <div class="assumption">
+            <strong>假设说明：</strong><br>
+            • 带宽利用率：${(r.assumptions.bandwidth_utilization * 100).toFixed(0)}%<br>
+            • Prefill速度：decode的${(r.assumptions.prefill_speed_ratio * 100).toFixed(0)}%<br>
+            ${r.assumptions.calibrated ? '• 已用实测数据校准' : '• 基于硬件规格估算'}
           </div>
         </div>
-      `).join('');
+      `}).join('');
 
-      const bestThroughput = result.comparison[0];
-      const bestCost = result.comparison.find(r => r.rank_cost === 1);
-
+      const best = result.comparison[0];
       const summary = `
-        <div class="summary-box">
+        <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 20px; border-radius: 8px; margin-top: 20px;">
           <h3>💡 推荐建议</h3>
-          <div class="recommendation">
-            <div>
-              <strong>🏆 最高吞吐</strong>
-              ${bestThroughput.server_name}<br>
-              ${bestThroughput.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s
-            </div>
-            <div>
-              <strong>💰 最佳性价比</strong>
-              ${bestCost ? bestCost.server_name : '无'}<br>
-              ${bestCost ? bestCost.cost_efficiency.price_per_tps.toFixed(2) + ' 元/TPS' : '无法承载'}
-            </div>
-            <div>
-              <strong>📊 共对比</strong>
-              ${result.comparison.length} 种配置
-            </div>
+          <div style="margin-top: 15px;">
+            <strong>🏆 最高吞吐：</strong>${best.server_name}<br>
+            ${best.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s<br>
+            <strong>💰 单位成本：</strong>${(best.price_wan / best.throughput_analysis.output_throughput_tps * 10000).toFixed(2)} 元/(tok/s)
+          </div>
+          <div style="margin-top: 15px; font-size: 13px; color: #666;">
+            <strong>注意：</strong>以上为理论测算值，实际性能受部署配置、网络、散热等因素影响。
+            ${result.comparison.some(r => r.memory_analysis.weight_assumption === 'estimated') ? '部分配置使用估算值，建议实测验证。' : ''}
           </div>
         </div>
       `;
@@ -1330,472 +526,9 @@ IB卡: 8xHDR 200Gb/s
       resultSection.scrollIntoView({ behavior: 'smooth' });
     }
 
-    function exportCSV() {
-      if (!lastResult) {
-        showToast('⚠️ 请先执行测算');
-        return;
-      }
-
-      const rows = [
-        ['配置名称', '价格(万元)', 'GPU型号', 'GPU数量', 'TP度', '实例数', '权重占用(GB)', '可用KV显存(GB)', '并发数', '聚合输出吞吐(tok/s)', '等效总吞吐(tok/s)', '单位成本(元/(tok/s))', '吞吐排名', '性价比排名']
-      ];
-
-      lastResult.comparison.forEach(r => {
-        rows.push([
-          r.server_name,
-          r.price_wan,
-          r.gpu_model,
-          r.gpu_count,
-          r.layout.tensor_parallel,
-          r.layout.instances,
-          r.memory_analysis.weight_total_gb.toFixed(2),
-          r.memory_analysis.available_kv_memory_gb.toFixed(2),
-          r.throughput_analysis.concurrency,
-          r.throughput_analysis.output_throughput_tps,
-          r.throughput_analysis.total_equivalent_tps,
-          r.cost_efficiency.price_per_tps.toFixed(2),
-          r.rank_throughput,
-          r.rank_cost,
-        ]);
-      });
-
-      const csv = rows.map(row => row.join(',')).join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `server_comparison_${new Date().toISOString().slice(0,10)}.csv`;
-      link.click();
-      showToast('✅ CSV 已导出');
-    }
-
-    // 报价单识别（支持键值对和表格两种格式）
-    function extractQuote() {
-      const text = document.getElementById('quoteText').value.trim();
-      if (!text) {
-        showToast('⚠️ 请粘贴报价单文字');
-        return;
-      }
-
-      const fields = [];
-
-      // ===== 表格格式识别（按行解析：名称 / 规格 / 单位 / 数量）=====
-      // 名称 → 字段映射表（含 OCR 常见变体）
-      const nameToField = {
-        '机头': 'serverName', '名称': 'serverName', '机型': 'serverName',
-        '平台': 'serverName', '设备型号': 'serverName', '型号': 'serverName',
-        '处理器': 'cpu', 'CPU': 'cpu',
-        '内存': 'memory_gb',
-        '系统盘': 'system_disk',
-        '数据盘': 'data_disk',
-        '网卡': 'network', '网卡1': 'network', '网卡一': 'network',
-        '网卡2': 'network2', '网卡二': 'network2',
-        'IB卡': 'ib_card', 'IB': 'ib_card',
-        'GPU卡': 'gpu', 'GPU': 'gpu', 'GPUF': 'gpu', '显卡': 'gpu',
-        '阵列卡': 'raid_card',
-        '电源': 'power',
-      };
-      // 表头与无关词，出现时跳过
-      const headerWords = /^(设备型号|设备配置|数量|名称|规格|型号|单位|规格型号|设备名称)$/;
-      // OCR 会把中文拆字（"机 头""处 理 器""内 存"），合并同一行内中文字符间的空格；
-      // 但换行绝不能合并（行是分隔符），且空格前若已构成字段名或表头词（如"平台 超聚变G8600"、
-      // "设备配置 数量"），那是词边界而不是拆字，必须保留空格。
-      const normalizedText = text.replace(
-        /([\u4e00-\u9fff])[ \t\u3000]+(?=[\u4e00-\u9fff])/g,
-        (m, ch, off, src) => {
-          const before = src.slice(Math.max(0, off - 8), off + 1).replace(/[ \t\u3000]+/g, '');
-          const isBoundary = Object.keys(nameToField).some((k) => before.endsWith(k))
-            || /(设备型号|设备配置|数量|名称|规格|型号|单位|规格型号|设备名称|平台)$/.test(before);
-          return isBoundary ? m : ch;
-        },
-      );
-      const rows = normalizedText.split('\n').map(r => r.trim()).filter(r => r.length > 0);
-      // 同名重复时按顺序改判：第二个"系统盘"视为数据盘，第二个"网卡"视为网卡2
-      const reassign = (field) => {
-        if (field === 'system_disk' && fields.some((x) => x.field === 'system_disk')
-            && !fields.some((x) => x.field === 'data_disk')) return 'data_disk';
-        if (field === 'network' && fields.some((x) => x.field === 'network')
-            && !fields.some((x) => x.field === 'network2')) return 'network2';
-        return field;
-      };
-      // 单位量词，用于从行末剥离"单位+数量"列
-      const unitWords = /台|个|块|片|根|颗|张|套|组/;
-      for (const row of rows) {
-        const rowTokens = row.split(/\s+/);
-        // 跳过表头：一行内出现 2 个及以上表头词，或整行只有一个表头词
-        const headerHits = rowTokens.filter((t) => headerWords.test(t)).length;
-        if (headerHits >= 2) continue;
-        if (headerHits === 1 && rowTokens.length === 1) continue;
-        if (rowTokens.length < 2) continue;
-        // 字段名不一定是行首：表格首列可能是合并单元格的机型名（如“算力服务器”）
-        let nameIdx = -1;
-        for (let i = 0; i < Math.min(rowTokens.length, 3); i++) {
-          if (nameToField[rowTokens[i]]) { nameIdx = i; break; }
-        }
-        if (nameIdx < 0) continue;
-        let field = reassign(nameToField[rowTokens[nameIdx]]);
-        // 剥离末尾的数量
-        let qty = '';
-        let specEnd = rowTokens.length;
-        if (/^\d+$/.test(rowTokens[rowTokens.length - 1])) {
-          qty = rowTokens[rowTokens.length - 1];
-          specEnd--;
-        }
-        // 剥离末尾的单位量词
-        if (specEnd > nameIdx + 1 && unitWords.test(rowTokens[specEnd - 1])) {
-          specEnd--;
-        }
-        const spec = rowTokens.slice(nameIdx + 1, specEnd).join(' ');
-        if (field === 'memory_gb') {
-          // 内存行：提取单根容量 × 数量（OCR 可能把 G 误读为 C）
-          const capMatch = spec.match(/(\d+)\s*[GgCc]/);
-          if (capMatch && qty) {
-            fields.push({ field: 'memory_gb', value: String(parseInt(capMatch[1]) * parseInt(qty)), confidence: 0.7 });
-          } else if (capMatch) {
-            fields.push({ field: 'memory_gb', value: capMatch[1], confidence: 0.6 });
-          }
-        } else if (field === 'gpu') {
-          // GPU 行：识别型号 + 数量（OCR 可能误读：PRO6000→PR06000/FR06000）
-          let gpuModel = '';
-          const compactSpec = spec.replace(/\s+/g, '').toUpperCase();
-          if (/P?R?0?6000|PRO6000|FR06000/.test(compactSpec)) gpuModel = 'RTX PRO 6000';
-          else if (/H200/.test(compactSpec)) gpuModel = 'H200';
-          else if (/H100/.test(compactSpec)) gpuModel = 'H100';
-          else if (/A100/.test(compactSpec)) gpuModel = 'A100';
-          else if (/A800/.test(compactSpec)) gpuModel = 'A800';
-          else if (/910C/.test(compactSpec)) gpuModel = 'Ascend 910C';
-          else if (/910B/.test(compactSpec)) gpuModel = 'Ascend 910B';
-          else if (/MI300X/.test(compactSpec)) gpuModel = 'MI300X';
-          else if (/MI325X/.test(compactSpec)) gpuModel = 'MI325X';
-          if (gpuModel) fields.push({ field: 'gpu_model', value: gpuModel, confidence: 0.8 });
-          if (qty) {
-            const n = parseInt(qty, 10);
-            // 报价单里 GPU 行的数量一般指整机卡数；写 1 多为“1 台 / 1 个模块”，按 8 卡整机处理
-            const effective = n <= 1 ? 8 : n;
-            fields.push({ field: 'gpu_count', value: String(effective), confidence: 0.8 });
-          }
-        } else if (field === 'serverName') {
-          // 机头：用规格作为配置名称
-          if (spec) fields.push({ field: 'serverName', value: spec, confidence: 0.7 });
-        } else {
-          // 其他字段：直接用规格
-          if (spec) fields.push({ field, value: spec, confidence: 0.7 });
-        }
-      }
-
-      // ===== 键值对格式识别（原有逻辑） =====
-      // 价格
-      const priceMatch = text.match(/总价\s*[:：]?\s*([\d.]+)/);
-      if (priceMatch) fields.push({ field: 'price', value: priceMatch[1], confidence: 0.6 });
-
-      // GPU型号（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'gpu_model')) {
-        const gpuModelMatch = text.match(/(H200|H100|A100|A800|910C|910B|RTX PRO 6000|MI300X|MI325X)/i);
-        if (gpuModelMatch) fields.push({ field: 'gpu_model', value: gpuModelMatch[1], confidence: 0.6 });
-      }
-
-      // GPU数量（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'gpu_count')) {
-        const gpuCountMatch = text.match(/(\d+)\s*卡/) || text.match(/[xX×]\s*(\d+)/);
-        if (gpuCountMatch) fields.push({ field: 'gpu_count', value: gpuCountMatch[1], confidence: 0.6 });
-      }
-
-      // CPU（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'cpu')) {
-        const cpuKVMatch = text.match(/CPU\s*[:：]\s*(.+)/i);
-        if (cpuKVMatch) fields.push({ field: 'cpu', value: cpuKVMatch[1].trim(), confidence: 0.6 });
-      }
-
-      // 内存（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'memory_gb')) {
-        const memKVMatch = text.match(/内存\s*[:：]?\s*(\d+)\s*([TtGg])/);
-        if (memKVMatch) {
-          const val = parseInt(memKVMatch[1]);
-          const unit = memKVMatch[2].toUpperCase();
-          fields.push({ field: 'memory_gb', value: String(unit === 'T' ? val * 1024 : val), confidence: 0.6 });
-        }
-      }
-
-      // 数据盘（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'data_disk')) {
-        const dataDiskKVMatch = text.match(/数据盘\s*[:：]\s*(.+)/);
-        if (dataDiskKVMatch) fields.push({ field: 'data_disk', value: dataDiskKVMatch[1].trim(), confidence: 0.6 });
-      }
-
-      // 系统盘（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'system_disk')) {
-        const sysDiskKVMatch = text.match(/系统盘\s*[:：]\s*(.+)/);
-        if (sysDiskKVMatch) fields.push({ field: 'system_disk', value: sysDiskKVMatch[1].trim(), confidence: 0.6 });
-      }
-
-      // 网卡（如果表格格式没识别到）
-      if (!fields.find(f => f.field === 'network')) {
-        const networkKVMatch = text.match(/网卡\s*[:：]\s*(.+)/);
-        if (networkKVMatch) fields.push({ field: 'network', value: networkKVMatch[1].trim(), confidence: 0.6 });
-      }
-
-      // IB卡
-      const ibMatch = text.match(/IB卡\s*[:：]\s*(.+)/);
-      if (ibMatch) fields.push({ field: 'ib_card', value: ibMatch[1].trim(), confidence: 0.6 });
-
-      // 电源
-      const powerMatch = text.match(/电源\s*[:：]\s*(.+)/);
-      if (powerMatch) fields.push({ field: 'power', value: powerMatch[1].trim(), confidence: 0.6 });
-
-      // 把“网卡2”合并进“网卡”：两张网卡都是网卡，不能冒充 IB 卡，信息也不该丢
-      const net2Items = fields.filter((f) => f.field === 'network2');
-      if (net2Items.length) {
-        const netIdx = fields.findIndex((f) => f.field === 'network');
-        const merged = [
-          ...(netIdx >= 0 ? [fields[netIdx].value] : []),
-          ...net2Items.map((x) => x.value),
-        ].join(' + ');
-        if (netIdx >= 0) fields[netIdx].value = merged;
-        else fields.push({ field: 'network', value: merged, confidence: 0.7 });
-        for (let i = fields.length - 1; i >= 0; i--) {
-          if (fields[i].field === 'network2') fields.splice(i, 1);
-        }
-      }
-
-      if (fields.length === 0) {
-        // 失败时给出可诊断的说明，而不是一句“未识别”
-        const compact = text.replace(/\s+/g, '');
-        const cn = (text.match(/[\u4e00-\u9fff]/g) || []).length;
-        const resultDiv = document.getElementById('extractResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-          <h4>未能识别出字段</h4>
-          <p>已读取 ${text.length} 个字符（其中汉字 ${cn} 个），但没有匹配到可用的配置项。</p>
-          <p><b>最常见原因：图片是拍照或扫描件。</b>纸张照片有底纹、阴影和轻微扭曲时，本地 OCR 的识别率会大幅下降；
-          屏幕截图（清晰、无变形）的识别率明显更高。</p>
-          <p>可以这样处理：</p>
-          <ul style="margin-left:18px;line-height:1.9">
-            <li>改用<b>屏幕截图</b>后重新粘贴，而不是用手机拍屏幕或拍纸质文件</li>
-            <li>把表格文字<b>直接粘贴到上面的输入框</b>，再点“识别报价单”</li>
-            <li>用系统自带的截图工具（Win+Shift+S）截取表格区域，画质更清晰</li>
-          </ul>`;
-        showToast('⚠️ 未识别到字段，请查看下方原因说明');
-        return;
-      }
-
-      // 显示结果
-      const resultDiv = document.getElementById('extractResult');
-      resultDiv.classList.remove('hidden');
-      resultDiv.innerHTML = `
-        <h4>识别结果（${fields.length} 个字段）</h4>
-        ${fields.map(f => `
-          <div class="field">
-            <span class="field-name">${f.field}</span>
-            <span class="field-value">${f.value}</span>
-            <span class="field-confidence">${(f.confidence * 100).toFixed(0)}%</span>
-          </div>
-        `).join('')}
-        <div style="margin-top: 15px;">
-          <button class="btn btn-primary" onclick="applyExtraction()">✅ 应用到表单</button>
-        </div>
-      `;
-
-      window.extractedFields = fields;
-      showToast(`✅ 识别完成，共 ${fields.length} 个字段`);
-    }
-
-    function applyExtraction() {
-      if (!window.extractedFields) return;
-
-      const fieldMap = {
-        'serverName': 'serverName',
-        'price': 'price',
-        'gpu_model': 'gpuModel',
-        'gpu_count': 'gpuCount',
-        'cpu': 'cpu',
-        'memory_gb': 'memoryGB',
-        'data_disk': 'dataDisk',
-        'system_disk': 'systemDisk',
-        'network': 'network',
-        'network2': 'ibCard',
-        'ib_card': 'ibCard',
-        'raid_card': 'raidCard',
-        'power': 'power',
-      };
-
-      const applied = new Set();
-      const skipped = [];
-      window.extractedFields.forEach(f => {
-        const inputId = fieldMap[f.field];
-        const input = inputId && document.getElementById(inputId);
-        if (!input) { skipped.push(f.field + '（无对应输入项）'); return; }
-        let value = String(f.value ?? '').trim();
-        if (!value) return;
-        if (inputId === 'gpuModel') {
-          const compact = value.replace(/\s+/g, '').toUpperCase();
-          if (/PRO6000/.test(compact)) value = 'RTX PRO 6000';
-          else if (/910C/.test(compact)) value = 'Ascend 910C';
-          else if (/910B/.test(compact)) value = 'Ascend 910B';
-          else value = Array.from(input.options).find(o => o.value.toUpperCase() === compact)?.value || value;
-          if (!Array.from(input.options).some(o => o.value === value)) {
-            skipped.push('GPU型号未匹配：' + value); return;
-          }
-        }
-        input.value = value;
-        if (input.value !== value) { skipped.push(f.field + '（格式不合法）'); return; }
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        applied.add(inputId);
-      });
-      const message = `✅ 已应用 ${applied.size} 个字段到服务器配置录入` +
-        (skipped.length ? '；未应用：' + skipped.join('、') : '');
-      let status = document.getElementById('applyStatus');
-      if (!status) {
-        status = document.createElement('p'); status.id = 'applyStatus';
-        document.getElementById('extractResult').appendChild(status);
-      }
-      status.textContent = message;
-      showToast(message);
-      if (applied.size) document.getElementById('serverName').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.animation = 'slideIn 0.3s ease-out reverse';
-        setTimeout(() => toast.remove(), 300);
-      }, 2500);
-    }
-
-    // 初始化
-    updateServerList();
-
-    // ========== 图片处理和 OCR 识别 ==========
-    const dropZone = document.getElementById('dropZone');
-    const imageInput = document.getElementById('imageInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const previewImg = document.getElementById('previewImg');
-    const ocrStatus = document.getElementById('ocrStatus');
-    const ocrResult = document.getElementById('ocrResult');
-    let currentImageData = null;
-
-    // 点击上传区域触发文件选择
-    dropZone.addEventListener('click', () => imageInput.click());
-
-    // 文件选择
-    imageInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleImageFile(e.target.files[0]);
-      }
-    });
-
-    // 拖拽上传
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleImageFile(e.dataTransfer.files[0]);
-      }
-    });
-
-    // 粘贴图片（Ctrl+V）
-    document.addEventListener('paste', (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          e.preventDefault();
-          const blob = items[i].getAsFile();
-          handleImageFile(blob);
-          break;
-        }
-      }
-    });
-
-    // 处理图片文件
-    function handleImageFile(file) {
-      if (!file.type.match('image.*')) {
-        showToast('⚠️ 请选择图片文件');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        currentImageData = e.target.result;
-        previewImg.src = currentImageData;
-        imagePreview.classList.remove('hidden');
-        ocrStatus.textContent = '正在进行 OCR 识别...';
-        ocrResult.classList.add('hidden');
-        
-        // 执行 OCR 识别
-        performOCR(currentImageData);
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // OCR 识别
-    async function performOCR(imageData) {
-      try {
-        ocrStatus.textContent = '正在加载 OCR 引擎...';
-        
-        const result = await Tesseract.recognize(
-          imageData,
-          'chi_sim+eng', // 中文简体 + 英文
-          {
-            logger: (m) => {
-              if (m.status === 'recognizing text') {
-                ocrStatus.textContent = `识别进度: ${Math.round(m.progress * 100)}%`;
-              }
-            }
-          }
-        );
-
-        const text = result.data.text;
-        const conf = Math.round(result.data.confidence || 0);
-        const cnCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
-        const lowQuality = cnCount < 20 || text.replace(/\s+/g, '').length < 30;
-        ocrStatus.textContent = lowQuality
-          ? `⚠️ 识别质量低（置信度 ${conf}%，有效汉字 ${cnCount} 个）—— 这张图可能是拍照或扫描件，建议改用屏幕截图`
-          : `✅ OCR 识别完成（置信度 ${conf}%）`;
-        ocrResult.textContent = text.trim() || '（没有识别到任何文字）';
-        ocrResult.classList.remove('hidden');
-        
-        // 自动填入文本框
-        document.getElementById('quoteText').value = text;
-        window.extractedFields = [];
-        document.getElementById('extractResult').innerHTML = '';
-        extractQuote();
-        showToast('✅ 图片识别完成，已重新提取本次图片的字段');
-        
-      } catch (error) {
-        console.error('OCR 错误:', error);
-        ocrStatus.textContent = '❌ OCR 识别失败: ' + error.message;
-        showToast('⚠️ OCR 识别失败，请手动输入');
-      }
-    }
-
-    // 清除图片
-    function clearImage() {
-      currentImageData = null;
-      previewImg.src = '';
-      imagePreview.classList.add('hidden');
-      ocrResult.classList.add('hidden');
-      imageInput.value = '';
-      showToast('🗑️ 已清除图片');
-    }
-
-    // 启动即恢复本地存档，让录入的配置跨会话保留
+    // 启动时恢复本地存档
     loadServers();
     updateServerList();
-    updateFormMode();
   </script>
 </body>
 </html>
