@@ -310,11 +310,14 @@
       color: #667eea;
       margin-bottom: 10px;
     }
-    .assumption { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-size: 13px; border-radius: 4px; }
-    .measured { background: #d4edda; border-left: 4px solid #28a745; padding: 10px; margin: 10px 0; font-size: 13px; border-radius: 4px; }
-    .estimated { background: #cce5ff; border-left: 4px solid #007bff; padding: 10px; margin: 10px 0; font-size: 13px; border-radius: 4px; }
-    .calibrated { background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px; margin: 10px 0; font-size: 13px; border-radius: 4px; }
-    .spec-note { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.5; }
+    /* 结果卡片是紫底白字，卡内的浅色标注框必须显式给深色文字，否则白字落在浅底上看不见 */
+    .assumption { background: #fff8e1; border-left: 4px solid #ffb300; padding: 12px; margin: 12px 0 0; font-size: 13px; border-radius: 6px; color: #4a3600; line-height: 1.9; }
+    .measured { display: block; background: #d4edda; border-left: 4px solid #28a745; padding: 8px 12px; margin: 8px 0 0; font-size: 13px; border-radius: 6px; color: #155724; }
+    .estimated { display: block; background: #cce5ff; border-left: 4px solid #007bff; padding: 8px 12px; margin: 8px 0 0; font-size: 13px; border-radius: 6px; color: #004085; }
+    .calibrated { display: block; background: #ffe3e6; border-left: 4px solid #dc3545; padding: 8px 12px; margin: 8px 0 0; font-size: 13px; border-radius: 6px; color: #721c24; }
+    .spec-note { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.6; }
+    .result-card .spec-note { color: rgba(255,255,255,0.88); }
+    .result-card .assumption strong { color: #4a3600; }
   </style>
 </head>
 <body>
@@ -1421,7 +1424,10 @@ if (typeof module !== 'undefined' && module.exports) {
 
         return `
         <div class="result-card">
-          <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">排名 #${r.rank}</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            <span style="background: rgba(255,255,255,0.25); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">吞吐 #${r.rank}</span>
+            <span style="background: rgba(255,255,255,0.25); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">性价比 ${r.rank_cost > 0 ? '#' + r.rank_cost : '—'}</span>
+          </div>
           <h3 style="margin-top: 10px;">${r.server_name}</h3>
           <div class="metric">
             <span class="metric-label">价格</span>
@@ -1477,20 +1483,39 @@ if (typeof module !== 'undefined' && module.exports) {
             <strong>假设说明：</strong><br>
             • 带宽利用率：${(r.assumptions.bandwidth_utilization * 100).toFixed(0)}%<br>
             • 单卡显存带宽取自本地 GPU 数据库${r.gpu_spec.assumed_largest ? '（该型号多版本，按最大显存取值）' : ''}<br>
+            • 卡间互联：${r.gpu_spec.interconnect}<br>
             • Prefill速度：decode的${(r.assumptions.prefill_speed_ratio * 100).toFixed(0)}%<br>
             ${r.assumptions.calibrated ? '• 已用实测数据校准' : '• 基于硬件规格估算'}
           </div>
         </div>
       `}).join('');
 
-      const best = result.comparison[0];
+      const bestThroughput = result.comparison[0];
+      const bestCost = result.comparison.find(r => r.rank_cost === 1);
+      const carryCount = result.comparison.filter(r => r.throughput_analysis.output_throughput_tps > 0).length;
       const summary = `
         <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 20px; border-radius: 8px; margin-top: 20px;">
           <h3>💡 推荐建议</h3>
-          <div style="margin-top: 15px;">
-            <strong>🏆 最高吞吐：</strong>${best.server_name}<br>
-            ${best.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s<br>
-            <strong>💰 单位成本：</strong>${(best.price_wan / best.throughput_analysis.output_throughput_tps * 10000).toFixed(2)} 元/(tok/s)
+          <div style="margin-top: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 15px;">
+            <div style="background: rgba(255,255,255,0.7); padding: 14px; border-radius: 8px;">
+              <strong>🏆 最高吞吐</strong><br>
+              ${bestThroughput.server_name}<br>
+              <span style="font-size: 20px; color: #667eea; font-weight: 600;">${bestThroughput.throughput_analysis.output_throughput_tps.toLocaleString()}</span> tok/s<br>
+              <span style="font-size: 13px; color: #666;">${bestThroughput.price_per_tps.toFixed(2)} 元/(tok/s)</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.7); padding: 14px; border-radius: 8px;">
+              <strong>💰 最佳性价比</strong><br>
+              ${bestCost
+                ? `${bestCost.server_name}<br>
+              <span style="font-size: 20px; color: #2c7a4b; font-weight: 600;">${bestCost.price_per_tps.toFixed(2)}</span> 元/(tok/s)<br>
+              <span style="font-size: 13px; color: #666;">${bestCost.throughput_analysis.output_throughput_tps.toLocaleString()} tok/s</span>`
+                : '<span style="color: #b00;">本次对比中没有可承载该模型的配置</span>'}
+            </div>
+            <div style="background: rgba(255,255,255,0.7); padding: 14px; border-radius: 8px;">
+              <strong>📊 对比范围</strong><br>
+              ${result.comparison.length} 种配置<br>
+              <span style="font-size: 13px; color: #666;">${carryCount} 种可承载当前模型</span>
+            </div>
           </div>
           <div style="margin-top: 15px; font-size: 13px; color: #666;">
             <strong>注意：</strong>以上为理论测算值，实际性能受部署配置、网络、散热等因素影响。
